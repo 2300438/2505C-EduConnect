@@ -162,3 +162,74 @@
         padding: 20px;
     }
 }
+
+/* --- FACILITATOR STATS GRID --- */
+.stats-grid {
+    display: flex;
+    gap: 20px;
+    margin-bottom: 40px;
+}
+
+.stat-card {
+    background: white;
+    padding: 20px;
+    border-radius: 12px;
+    flex: 1;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+    border-left: 4px solid #3498db; /* Blue accent line */
+}
+
+.stat-card h3 {
+    color: #777;
+    font-size: 14px;
+    font-weight: 500;
+    margin-bottom: 5px;
+}
+
+.stat-card p {
+    font-size: 28px;
+    color: #2c3e50;
+    font-weight: 800;
+}
+
+/* Red accent for pending tasks */
+.stat-card.alert {
+    border-left-color: #e74c3c; 
+}
+.stat-card.alert p {
+    color: #e74c3c;
+}
+
+/* Facilitator action buttons */
+.card-actions {
+    margin-top: 15px;
+    display: flex;
+    gap: 10px;
+}
+
+.btn-primary {
+    flex: 1;
+    background-color: #3498db;
+    color: white;
+    padding: 8px;
+    border: none;
+    border-radius: 6px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+.btn-secondary {
+    flex: 1;
+    background-color: transparent;
+    color: #2c3e50;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+.btn-primary:hover { background-color: #2980b9; }
+.btn-secondary:hover { background-color: #f4f8fb; }
