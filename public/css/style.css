@@ -1,0 +1,260 @@
+/* --- CSS RESET --- */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    /* Use the font we linked in the HTML */
+    font-family: 'Poppins', sans-serif; 
+}
+
+body {
+    background-color: #f8f9fa;
+    color: #333;
+}
+
+/* --- UTILITY --- */
+.container {
+    max-width: 1200px; /* This makes your content stop spreading too wide on big screens */
+    margin: 0 auto;
+    padding: 0 20px;
+}
+
+/* --- BUTTONS --- */
+button {
+    padding: 10px 22px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: 0.3s; /* This makes hover effects smooth */
+}
+
+/* --- NAVBAR --- */
+.navbar {
+    background-color: #ffffff;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    position: fixed; /* This keeps the navbar stuck to the top */
+    width: 100%;
+    top: 0;
+    z-index: 100;
+}
+
+.navbar .container {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    height: 80px;
+}
+
+.logo {
+    font-size: 26px;
+    font-weight: 700;
+    color: #2c3e50;
+}
+
+.nav-links {
+    list-style: none;
+    display: flex;
+    gap: 30px;
+}
+
+.nav-links a {
+    text-decoration: none;
+    color: #555;
+    font-weight: 400;
+}
+
+.nav-links a:hover {
+    color: #3498db;
+}
+
+.nav-buttons {
+    display: flex;
+    gap: 10px;
+}
+
+.btn-login { background: none; color: #2c3e50; }
+.btn-login:hover { color: #3498db; }
+.btn-signup { background-color: #2c3e50; color: white; }
+.btn-signup:hover { background-color: #3e5a77; }
+
+/* --- HERO SECTION --- */
+.hero {
+    width: 100%;
+    /* Soft blue background to blend with the illustration */
+    background-color: #f4f8fb; 
+    padding-top: 100px; /* Space below your navbar */
+    display: flex;
+    flex-direction: column; /* This stacks the text ABOVE the image */
+    align-items: center;
+    text-align: center;
+}
+
+.hero-text {
+    margin-bottom: 20px;
+}
+
+.hero-text h1 {
+    font-size: 42px;
+    color: #2b4b80; /* Dark blue to match your design */
+    margin-bottom: -5px;
+    margin-top: -20px;
+    font-weight: bold;
+}
+
+.hero-text p {
+    font-size: 22px;
+    color: #555;
+}
+
+.hero-image-container {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    padding: 0 20px; /* Adds a little breathing room on the sides for mobile */
+    margin-bottom: -10px;
+    margin-top: 0px;
+}
+
+.hero-image {
+    width: 100%;
+    max-width: 1000px; /* THIS IS THE FIX! It stops the image from getting too huge */
+    height: auto;
+    margin: 0 auto; /* Keeps the image perfectly centered */
+    display: block;
+    margin-bottom: 0px;
+}
+
+/* --- ACTION CARDS SECTION --- */
+.action-section {
+    padding: 20px 20px 60px 20px;
+    background-color: #f8f9fa; /* Matches the bottom of your image */
+}
+
+/* This puts them in a row and centers them */
+.card-container {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap; /* This makes them stack neatly on mobile phones! */
+    gap: 20px;
+    max-width: 1000px;
+    margin: 0 auto;
+}
+
+/* This styles the actual buttons to look like cards */
+.action-card {
+    background-color: #ffffff;
+    padding: 20px 30px;
+    border-radius: 12px;
+    text-decoration: none; /* Removes the ugly blue underline from links */
+    color: #2c3e50; /* Dark blue text */
+    text-align: center;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.05); /* Adds a soft shadow */
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    flex: 1; /* Makes all cards stretch to be equal width */
+    min-width: 180px; /* Stops them from getting too skinny */
+}
+
+/* The hover effect! */
+.action-card:hover {
+    transform: translateY(-5px); /* Moves it up slightly */
+    box-shadow: 0 8px 20px rgba(0,0,0,0.1); /* Makes the shadow deeper */
+}
+
+.action-card h3 {
+    font-size: 16px;
+    font-weight: 600;
+    margin: 0;
+}
+
+/* --- CHATBOT UI --- */
+/* --- GLOBAL CHATBOT STYLES --- */
+.chat-widget {
+    position: fixed; /* Always stays in the corner */
+    bottom: 20px;
+    right: 20px;
+    z-index: 9999; /* Ensures it stays ON TOP of everything else */
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+}
+
+.chat-toggle-btn {
+    background-color: #3498db;
+    color: white;
+    border: none;
+    padding: 12px 20px;
+    border-radius: 50px;
+    cursor: pointer;
+    font-weight: 600;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.chat-box {
+    display: none; /* JS will toggle this to 'flex' */
+    width: 320px;
+    height: 420px;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+    margin-bottom: 10px;
+    flex-direction: column;
+    overflow: hidden;
+    border: 1px solid #ddd;
+}
+.chat-header {
+    background: #2c3e50;
+    color: white;
+    padding: 15px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.chat-messages {
+    flex: 1;
+    padding: 15px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    background: #f9f9f9;
+}
+
+.message {
+    max-width: 85%;
+    padding: 10px;
+    border-radius: 10px;
+    font-size: 13px;
+}
+
+.ai-message { background: #eef2f7; align-self: flex-start; color: #333; }
+.user-message { background: #3498db; color: white; align-self: flex-end; }
+
+.chat-input-area {
+    padding: 10px;
+    display: flex;
+    border-top: 1px solid #eee;
+}
+
+.chat-input-area input {
+    flex: 1;
+    border: 1px solid #ddd;
+    padding: 8px;
+    border-radius: 5px;
+    outline: none;
+}
+
+.send-btn {
+    background: #3498db;
+    color: white;
+    border: none;
+    margin-left: 5px;
+    padding: 0 10px;
+    border-radius: 5px;
+    cursor: pointer;
+}
