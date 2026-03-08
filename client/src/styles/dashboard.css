@@ -1,0 +1,164 @@
+/* --- LAYOUT --- */
+.dashboard-container {
+    display: flex;
+    min-height: calc(100vh - 80px); 
+    margin-top: 80px; /* <--- THIS PUSHES IT DOWN BELOW THE NAVBAR */
+}
+
+/* --- SIDEBAR --- */
+.sidebar {
+    width: 250px;
+    background-color: #2c3e50;
+    color: white;
+    padding: 30px 20px;
+}
+
+.sidebar-menu {
+    list-style: none;
+    margin-top: 20px;
+}
+
+.sidebar-menu li {
+    margin-bottom: 10px;
+}
+
+/* --- FIXING THE LINKS & BUTTONS --- */
+/* Target BOTH buttons and 'a' tags (which React Links use) */
+.sidebar-menu button, 
+.sidebar-menu a {
+    background: none;
+    border: none;
+    color: #aeb6bf;
+    text-align: left;
+    width: 100%;
+    font-size: 16px;
+    display: block;
+    padding: 12px;
+    border-radius: 8px;
+    transition: 0.3s;
+    cursor: pointer;
+    text-decoration: none; /* Stops the blue underline */
+}
+
+/* Hover effects for both */
+.sidebar-menu button:hover, 
+.sidebar-menu button.active,
+.sidebar-menu a:hover,
+.sidebar-menu a.active {
+    background-color: #3498db;
+    color: white;
+}
+
+/* --- MAIN CONTENT --- */
+.main-content {
+    flex: 1;
+    padding: 40px 50px;
+    background-color: #f4f8fb; /* Moved the background color here from the body tag */
+}
+
+.dashboard-header {
+    margin-bottom: 40px;
+}
+
+.dashboard-header h2 {
+    font-size: 28px;
+    color: #2c3e50;
+}
+
+.dashboard-header p {
+    color: #777;
+    margin-top: 5px;
+}
+
+/* --- COURSE GRID & CARDS --- */
+.enrolled-courses h3 {
+    margin-bottom: 20px;
+    color: #2c3e50;
+}
+
+.course-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); 
+    gap: 25px;
+}
+
+.course-card {
+    background: white;
+    padding: 25px;
+    border-radius: 12px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+    transition: transform 0.2s;
+}
+
+.course-card:hover {
+    transform: translateY(-5px);
+}
+
+.course-icon {
+    font-size: 32px;
+    margin-bottom: 15px;
+}
+
+.course-card h4 {
+    color: #2c3e50;
+    margin-bottom: 8px;
+    font-size: 18px;
+}
+
+.course-card p {
+    font-size: 13px;
+    color: #777;
+    margin-bottom: 20px;
+}
+
+/* --- PROGRESS BARS --- */
+.progress-container {
+    width: 100%;
+    background-color: #eaf3fa;
+    border-radius: 10px;
+    height: 10px;
+    margin-bottom: 8px;
+    overflow: hidden;
+}
+
+.progress-bar {
+    height: 100%;
+    background-color: #3498db;
+    border-radius: 10px;
+}
+
+.progress-text {
+    font-size: 12px;
+    color: #555;
+    font-weight: 600;
+}
+
+/* --- MOBILE RESPONSIVENESS --- */
+@media (max-width: 768px) {
+    .dashboard-container {
+        flex-direction: column;
+    }
+    
+    .sidebar {
+        width: 100%;
+        padding: 20px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+    
+    .sidebar-menu {
+        display: flex;
+        gap: 10px;
+        margin-top: 0;
+    }
+    
+    .sidebar-menu button {
+        padding: 8px 12px;
+        font-size: 14px;
+    }
+    
+    .main-content {
+        padding: 20px;
+    }
+}
