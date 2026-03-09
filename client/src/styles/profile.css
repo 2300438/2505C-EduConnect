@@ -177,3 +177,53 @@
         gap: 10px;
     }
 }
+
+/* --- EDIT MODE STYLES --- */
+.edit-bio-container {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.bio-textarea {
+    width: 100%;
+    min-height: 120px;
+    padding: 15px;
+    border: 2px solid #f4f8fb;
+    border-radius: 8px;
+    font-family: inherit;
+    font-size: 14px;
+    color: #555;
+    line-height: 1.6;
+    resize: vertical;
+    transition: border-color 0.3s;
+}
+
+.bio-textarea:focus {
+    outline: none;
+    border-color: #3498db;
+    background-color: #fff;
+}
+
+.btn-save {
+    align-self: flex-start;
+    padding: 10px 25px;
+    background-color: #3498db; /* Blue to match avatar */
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: 0.3s;
+    box-shadow: 0 4px 10px rgba(52, 152, 219, 0.2);
+}
+
+.btn-save:hover {
+    background-color: #2980b9;
+    transform: translateY(-1px);
+}
+
+/* Optional: change the Edit button color when in "Cancel" mode */
+.btn-edit-profile.cancel-mode {
+    background-color: #e74c3c; /* Red for cancel */
+}
