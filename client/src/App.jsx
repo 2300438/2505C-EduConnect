@@ -5,11 +5,11 @@ import Dashboard from './pages/Dashboard';
 import Profile from './pages/Profile';
 import InstructorDashboard from './pages/Instructor-Dashboard';
 import Chatbot from './components/Chatbot';
-<<<<<<< HEAD
+
 import { jwtDecode } from "jwt-decode"; // Ensure this is installed
-=======
+
 import Login from './pages/Login';
->>>>>>> f707252dc1be8459e725a43c0198aa494a080ce2
+
 
 const Navbar = () => {
   const navigate = useNavigate();
@@ -72,7 +72,7 @@ const Navbar = () => {
           <li><Link to="/profile">Profile</Link></li>
         </ul>
         
-<<<<<<< HEAD
+
         <div className="nav-actions">
           {user ? (
             <div className="user-logged-in">
@@ -97,7 +97,7 @@ const Navbar = () => {
             )
           )}
         </div>
-=======
+
         {/* 3. Conditional Rendering: Only displays if isHomepage is true */}
         {isHomepage && (
           <div className="nav-buttons">
@@ -113,7 +113,7 @@ const Navbar = () => {
             </button>
           </div>
         )}
->>>>>>> f707252dc1be8459e725a43c0198aa494a080ce2
+
       </div>
     </nav>
   );

@@ -39,16 +39,19 @@ const Login = () => {
     }),
     onSubmit: async (values, { setSubmitting, setStatus }) => {
       try {
-        const response = await fetch(`${import.meta.env.VITE_API_URL}/login`, {
+        // FIX 1: Pointing to /auth/login instead of just /login
+        const response = await fetch(`${import.meta.env.VITE_API_URL}/auth/login`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ ...values, role }),
+          body: JSON.stringify({ email: values.email, password: values.password }),
         });
 
         const data = await response.json();
 
-        if (data.success) {
-          login(data.user, data.token);
+        // FIX 2: Checking response.ok because your backend doesn't send a "success" boolean
+        if (response.ok) {
+          // FIX 3: Using data.accessToken to match your backend's exact variable name
+          login(data.user, data.accessToken);
           navigate(role === 'instructor' ? '/instructor-dashboard' : '/student-dashboard');
         } else {
           setStatus(data.message || "Invalid credentials");
@@ -191,4 +194,4 @@ const Login = () => {
   );
 };
 
-export default Login; 
+export default Login;
