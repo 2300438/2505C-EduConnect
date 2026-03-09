@@ -4,6 +4,7 @@ import Dashboard from './pages/Dashboard';
 import Profile from './pages/Profile';
 import InstructorDashboard from './pages/Instructor-Dashboard';
 import Chatbot from './components/Chatbot';
+import Login from './pages/Login';
 
 const Navbar = () => {
   const navigate = useNavigate();
@@ -27,8 +28,8 @@ const Navbar = () => {
         {/* 3. Conditional Rendering: Only displays if isHomepage is true */}
         {isHomepage && (
           <div className="nav-buttons">
-            <button onClick={() => navigate('/dashboard')} className="btn-login">
-              Login as Student
+            <button onClick={() => navigate('/login')} className="btn-login">
+              Login
             </button>
             <button 
               onClick={() => navigate('/instructor-dashboard')} 
@@ -55,6 +56,7 @@ function App() {
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/profile" element={<Profile />} />
           <Route path="/instructor-dashboard" element={<InstructorDashboard />} />
+          <Route path="/login" element={<Login />} />
         </Routes>
         
         <Chatbot /> {/* Global Chatbot stays here */}
