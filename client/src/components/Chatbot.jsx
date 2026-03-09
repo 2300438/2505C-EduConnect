@@ -3,8 +3,9 @@ import '../styles/style.css';
 
 const Chatbot = () => {
     const [isOpen, setIsOpen] = useState(false);
+    // Initialize with a generic greeting, or pull name from localStorage if available
     const [messages, setMessages] = useState([
-        { role: 'ai', text: "Hi Yazid! Ready to work on ICT2503, 2504, or 2505?" }
+        { role: 'ai', text: "Hi! How can I help you with your ICT studies today?" }
     ]);
     const [input, setInput] = useState("");
     const messagesEndRef = useRef(null);
@@ -19,18 +20,32 @@ const Chatbot = () => {
         setInput("");
 
         try {
+            // 1. Retrieve the JWT token saved during login
+            const token = localStorage.getItem('token'); 
+
             const response = await fetch('http://localhost:3001/api/chat', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 
+                    'Content-Type': 'application/json',
+                    // 2. Attach the token to the Authorization header
+                    'Authorization': `Bearer ${token}` 
+                },
                 body: JSON.stringify({ 
-                    message: userText, 
-                    profile: { name: "Muhammad Yazid", role: "Student", courses: ["ICT2503", "ICT2504", "ICT2505"] }
+                    message: userText
+                    
                 })
             });
+
             const data = await response.json();
+
+            if (response.status === 401 || response.status === 403) {
+                setMessages(prev => [...prev, { role: 'ai', text: "Please log in to use the AI assistant." }]);
+                return;
+            }
+
             setMessages(prev => [...prev, { role: 'ai', text: data.reply }]);
         } catch (err) {
-            setMessages(prev => [...prev, { role: 'ai', text: "Connection error." }]);
+            setMessages(prev => [...prev, { role: 'ai', text: "Connection error. Is the server running?" }]);
         }
     };
 
@@ -49,7 +64,12 @@ const Chatbot = () => {
                         <div ref={messagesEndRef} />
                     </div>
                     <div className="chat-input-area">
-                        <input value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleSend()} />
+                        <input 
+                            value={input} 
+                            placeholder="Ask about ICT2503..."
+                            onChange={(e) => setInput(e.target.value)} 
+                            onKeyDown={(e) => e.key === 'Enter' && handleSend()} 
+                        />
                         <button onClick={handleSend}>➤</button>
                     </div>
                 </div>
