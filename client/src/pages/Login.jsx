@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
 import { 
@@ -23,9 +23,19 @@ import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import { useAuth } from '../context/AuthContext';
 
 const Login = () => {
-  const [role, setRole] = useState('student');
+  const location = useLocation();
   const { login } = useAuth();
   const navigate = useNavigate();
+
+  // 1. Catch the state passed from the Navbar, default to 'student' if none exists
+  const [role, setRole] = useState(location.state?.role || 'student');
+
+  // 2. Listen for header clicks if the user is ALREADY on the Login page
+  useEffect(() => {
+    if (location.state?.role) {
+      setRole(location.state.role);
+    }
+  }, [location.state]);
 
   // Formik Logic
   const formik = useFormik({
@@ -39,7 +49,6 @@ const Login = () => {
     }),
     onSubmit: async (values, { setSubmitting, setStatus }) => {
       try {
-        // FIX 1: Pointing to /auth/login instead of just /login
         const response = await fetch(`${import.meta.env.VITE_API_URL}/auth/login`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -48,9 +57,7 @@ const Login = () => {
 
         const data = await response.json();
 
-        // FIX 2: Checking response.ok because your backend doesn't send a "success" boolean
         if (response.ok) {
-          // FIX 3: Using data.accessToken to match your backend's exact variable name
           login(data.user, data.accessToken);
           navigate(role === 'instructor' ? '/instructor-dashboard' : '/student-dashboard');
         } else {

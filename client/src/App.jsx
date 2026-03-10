@@ -1,16 +1,32 @@
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Link, useNavigate, useLocation } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Link, useNavigate, useLocation, Navigate } from 'react-router-dom';
 import Home from './pages/Home';
 import Dashboard from './pages/Dashboard';
 import Profile from './pages/Profile';
 import InstructorDashboard from './pages/Instructor-Dashboard';
 import Chatbot from './components/Chatbot';
-
-import { jwtDecode } from "jwt-decode"; // Ensure this is installed
-
+import { jwtDecode } from "jwt-decode";
 import Login from './pages/Login';
+import { useAuth } from './context/AuthContext'; // Ensure this path is correct
 
+// --- 1. THE PROTECTED ROUTE COMPONENT (The Bouncer) ---
+const ProtectedRoute = ({ children, allowedRole }) => {
+  const { user, loading, isAuthenticated } = useAuth();
 
+  if (loading) return <div>Loading...</div>;
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (allowedRole && user?.role !== allowedRole) {
+    return <Navigate to="/" replace />;
+  }
+
+  return children;
+};
+
+// --- 2. THE NAVBAR COMPONENT ---
 const Navbar = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -25,11 +41,9 @@ const Navbar = () => {
       }
 
       try {
-        // 1. Get the ID from the token
         const decoded = jwtDecode(token);
         const userId = decoded.id;
 
-        // 2. Fetch the FULL profile from the DB (Same logic as Profile.jsx)
         const response = await fetch(`http://localhost:3001/api/profile/${userId}`, {
           method: 'GET',
           headers: {
@@ -40,8 +54,7 @@ const Navbar = () => {
 
         if (response.ok) {
           const data = await response.json();
-          // 3. Set the user state with the fullName from the database response
-          setUser(data); 
+          setUser(data);
         }
       } catch (error) {
         console.error("Navbar Sync Error:", error);
@@ -50,10 +63,11 @@ const Navbar = () => {
     };
 
     fetchUserData();
-  }, [location]); // Re-runs on every page change to keep the name updated
+  }, [location]);
 
   const handleLogout = () => {
     localStorage.removeItem('token');
+    localStorage.removeItem('user'); // Also clear the user object
     setUser(null);
     navigate('/');
   };
@@ -68,27 +82,35 @@ const Navbar = () => {
         </Link>
         <ul className="nav-links">
           <li><Link to="/">Home</Link></li>
-          <li><Link to="/dashboard">Dashboard</Link></li>
+          {/* DYNAMIC DASHBOARD LINK: Directs based on role */}
+          <li>
+            <Link to={user?.role === 'instructor' ? "/instructor-dashboard" : "/dashboard"}>
+              Dashboard
+            </Link>
+          </li>
           <li><Link to="/profile">Profile</Link></li>
         </ul>
-        
 
         <div className="nav-actions">
           {user ? (
             <div className="user-logged-in">
-              {/* Use fullName because that's what your backend returns */}
               <span className="user-name">Hi, {user.fullName || "User"}</span>
               <button onClick={handleLogout} className="btn-logout">Logout</button>
             </div>
           ) : (
             isHomepage && (
               <div className="nav-buttons">
-                <button onClick={() => navigate('/dashboard')} className="btn-login">
+                <button
+                  onClick={() => navigate('/login', { state: { role: 'student' } })}
+                  className="btn-login"
+                  style={{ backgroundColor: '#1976d2', color: 'white', border: 'none' }}
+                >
                   Login as Student
                 </button>
-                <button 
-                  onClick={() => navigate('/instructor-dashboard')} 
-                  className="btn-signup" 
+
+                <button
+                  onClick={() => navigate('/login', { state: { role: 'instructor' } })}
+                  className="btn-signup"
                   style={{ backgroundColor: '#27ae60' }}
                 >
                   Login as Instructor
@@ -97,28 +119,12 @@ const Navbar = () => {
             )
           )}
         </div>
-
-        {/* 3. Conditional Rendering: Only displays if isHomepage is true */}
-        {isHomepage && (
-          <div className="nav-buttons">
-            <button onClick={() => navigate('/login')} className="btn-login">
-              Login
-            </button>
-            <button 
-              onClick={() => navigate('/instructor-dashboard')} 
-              className="btn-signup" 
-              style={{ backgroundColor: '#27ae60' }}
-            >
-              Login as Instructor
-            </button>
-          </div>
-        )}
-
       </div>
     </nav>
   );
 };
 
+// --- 3. THE MAIN APP COMPONENT ---
 function App() {
   return (
     <Router>
@@ -126,10 +132,28 @@ function App() {
         <Navbar />
         <Routes>
           <Route path="/" element={<Home />} />
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/profile" element={<Profile />} />
-          <Route path="/instructor-dashboard" element={<InstructorDashboard />} />
           <Route path="/login" element={<Login />} />
+
+          {/* Student Only */}
+          <Route path="/dashboard" element={
+            <ProtectedRoute allowedRole="student">
+              <Dashboard />
+            </ProtectedRoute>
+          } />
+
+          {/* Instructor Only */}
+          <Route path="/instructor-dashboard" element={
+            <ProtectedRoute allowedRole="instructor">
+              <InstructorDashboard />
+            </ProtectedRoute>
+          } />
+
+          {/* Any logged-in user */}
+          <Route path="/profile" element={
+            <ProtectedRoute>
+              <Profile />
+            </ProtectedRoute>
+          } />
         </Routes>
         <Chatbot />
       </div>
