@@ -49,7 +49,7 @@ const Login = () => {
     }),
     onSubmit: async (values, { setSubmitting, setStatus }) => {
       try {
-        const response = await fetch(`${import.meta.env.VITE_API_URL}/auth/login`, {
+        const response = await fetch(`${import.meta.env.VITE_API_URL}auth/login`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email: values.email, password: values.password }),
@@ -59,7 +59,7 @@ const Login = () => {
 
         if (response.ok) {
           login(data.user, data.accessToken);
-          navigate(role === 'instructor' ? '/instructor-dashboard' : '/student-dashboard');
+          navigate(role === 'instructor' ? '/instructor-dashboard' : '/dashboard');
         } else {
           setStatus(data.message || "Invalid credentials");
         }
