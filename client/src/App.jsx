@@ -7,6 +7,7 @@ import InstructorDashboard from './pages/Instructor-Dashboard';
 import Chatbot from './components/Chatbot';
 import { jwtDecode } from "jwt-decode";
 import Login from './pages/Login';
+import Register from './pages/Register';
 import { useAuth } from './context/AuthContext'; // Ensure this path is correct
 
 // --- 1. THE PROTECTED ROUTE COMPONENT (The Bouncer) ---
@@ -16,7 +17,7 @@ const ProtectedRoute = ({ children, allowedRole }) => {
   if (loading) return <div>Loading...</div>;
 
   if (!isAuthenticated) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to="/register" replace />;
   }
 
   if (allowedRole && user?.role !== allowedRole) {
@@ -133,6 +134,7 @@ function App() {
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
 
           {/* Student Only */}
           <Route path="/dashboard" element={
