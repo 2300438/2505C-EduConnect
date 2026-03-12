@@ -4,8 +4,8 @@ require('dotenv').config();
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 
 // --- 1. ADD THESE SPECIFIC IMPORTS ---
-const { sequelize, User } = require("./models"); // Added 'User' here
-const protect = require("./middleware/validateToken"); // Added this import
+const { sequelize, User } = require("./models"); 
+const protect = require("./middleware/validateToken"); 
 // --------------------------------------
 
 const authRoutes = require("./routes/auth");
@@ -22,13 +22,18 @@ const PORT = process.env.PORT || 3001;
 app.use(cors());
 app.use(express.json());
 
-// --- COLLEAGUE'S API ROUTES ---
+// --- API ROUTES ---
 app.use("/auth", authRoutes);
 app.use("/api/profile", profileRoutes);
 app.use("/api/courses", courseRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/enrollments", enrollmentRoutes);
 app.use("/api/progress", progressRoutes);
+
+// Test route
+app.get("/", (req, res) => {
+    res.json({ message: "EduConnect backend running." });
+});
 
 // --- YOUR GEMINI AI SETUP ---
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
@@ -37,8 +42,12 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 app.post('/api/chat', protect, async (req, res) => { 
     try {
         const { message } = req.body;
+
+        if (!message) {
+            return res.status(400).json({ reply: "Message is required." });
+        }
         
-        // Use req.user which is populated by your colleague's validateToken
+        // Use req.user which is populated by the validateToken middleware
         const user = await User.findByPk(req.user.id);
 
         if (!user) {
@@ -49,7 +58,7 @@ app.post('/api/chat', protect, async (req, res) => {
         const systemPrompt = `
             You are the EduConnect AI Assistant for ${user.fullName}.
             Your role is to assist this ${user.role} with their ICT studies.
-            STRICT RULES: Be concise. Address them as ${user.fullName} once.
+            STRICT RULES: Be concise. Address them as ${user.fullName} once. Focus on ICT2503/4/5.
         `;
 
         const model = genAI.getGenerativeModel({ 
@@ -66,8 +75,7 @@ app.post('/api/chat', protect, async (req, res) => {
     }
 });
 
-// --- COLLEAGUE'S DB SYNC & SERVER START ---
-
+// --- DB SYNC & SERVER START ---
 sequelize.sync({ alter: true })
     .then(() => {
         console.log("Database synced successfully.");
