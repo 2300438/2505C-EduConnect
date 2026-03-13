@@ -50,7 +50,6 @@ const Dashboard = () => {
 
             <main className="main-content">
                 <header className="dashboard-header">
-                    <h2>Welcome back, Student! 👋</h2>
                     {/* Use optional chaining here too! */}
                     <h2>Welcome back, {user?.fullName || 'Student'}! 👋</h2>
                     <p>Here is an overview of your learning progress.</p>

@@ -77,5 +77,16 @@ router.post("/", validateToken, async (req, res) => {
     });
   }
 });
+router.get("/instructor/me", validateToken, async (req, res) => {
+  try {
+    const courses = await Course.findAll({
+      where: { instructorId: req.user.id }, // Filters by the token's user ID
+      order: [["createdAt", "DESC"]],
+    });
+    res.json(courses);
+  } catch (error) {
+    res.status(500).json({ message: "Failed to fetch your courses." });
+  }
+});
 
 module.exports = router;

@@ -1,20 +1,45 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 import '../styles/dashboard.css';
 
 const InstructorDashboard = () => {
     const navigate = useNavigate();
+    const { logout, user } = useAuth();
+    const [courses, setCourses] = useState([]);
+    const [loading, setLoading] = useState(true);
 
-    // Mock Data for the Facilitator View
-    const teachingCourses = [
-        { id: 'ICT2503', name: "Applied Statistics & Analytics", students: 45, pendingGrades: 12, icon: "📊" },
-        { id: 'ICT2504', name: "Modern Software Engineering", students: 38, pendingGrades: 5, icon: "💻" },
-        { id: 'ICT2505', name: "Digital Systems & Security", students: 50, pendingGrades: 20, icon: "🔐" }
-    ];
+    // Fetch courses from MySQL on component mount
+    useEffect(() => {
+    const fetchMyCourses = async () => {
+        try {
+            // Get the token you stored during login
+            const token = localStorage.getItem("accessToken"); 
+
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/courses/instructor/me`, {
+                method: "GET",
+                headers: {
+                    "Authorization": `Bearer ${token}`,
+                    "Content-Type": "application/json"
+                }
+            });
+            
+            const data = await response.json();
+            if (response.ok) {
+                setCourses(data);
+            }
+        } catch (error) {
+            console.error("Error fetching instructor courses:", error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    fetchMyCourses();
+}, []);
 
     return (
         <div className="dashboard-container">
-            {/* --- SIDEBAR --- */}
             <aside className="sidebar">
                 <ul className="sidebar-menu">
                     <li>
@@ -22,70 +47,48 @@ const InstructorDashboard = () => {
                             👨‍🏫 Instructor Home
                         </button>
                     </li>
-                    <li>
-                        <Link to="/manage-courses">📝 Manage Courses</Link>
-                    </li>
-                    <li>
-                        <button onClick={() => navigate('/profile')}>
-                            👤 Profile
-                        </button>
-                    </li>
-                    {/* Replaced <br /> tags with a styled margin to push the button down safely */}
+                    <li><Link to="/manage-courses">📝 Manage Courses</Link></li>
+                    <li><button onClick={() => navigate('/profile')}>👤 Profile</button></li>
                     <li style={{ marginTop: '40px' }}>
-                        <button onClick={() => navigate('/')}>
-                            🚪 Log Out
-                        </button>
+                        <button onClick={() => { logout(); navigate('/'); }}>🚪 Log Out</button>
                     </li>
                 </ul>
             </aside>
 
-            {/* --- MAIN CONTENT --- */}
             <main className="main-content">
                 <header className="dashboard-header">
-                    <h2>Welcome back, Professor! 🎓</h2>
+                    <h2>Welcome back, {user?.fullName || 'Professor'}! 🎓</h2>
                     <p>Manage your courses and review student analytics.</p>
                 </header>
 
-                {/* --- QUICK STATS GRID --- */}
-                <div className="stats-grid">
-                    <div className="stat-card">
-                        <h3>Total Enrolled</h3>
-                        <p>133</p>
-                    </div>
-                    <div className="stat-card alert">
-                        <h3>Pending Grades</h3>
-                        <p>37</p>
-                    </div>
-                    <div className="stat-card">
-                        <h3>Active Modules</h3>
-                        <p>3</p>
-                    </div>
-                </div>
-
-                {/* --- COURSE CARDS --- */}
                 <section className="enrolled-courses">
                     <h3>Your Teaching Modules</h3>
                     
-                    {/* Maps through the teachingCourses array to generate the UI */}
-                    <div className="course-grid">
-                        {teachingCourses.map(course => (
-                            <div className="course-card" key={course.id}>
-                                <div className="course-icon">{course.icon}</div>
-                                <h4>{course.id}: {course.name}</h4>
-                                <p style={{ marginBottom: '5px' }}>
-                                    Enrolled Students: <strong>{course.students}</strong>
-                                </p>
-                                <p style={{ color: course.pendingGrades > 0 ? '#e74c3c' : '#2ecc71', fontWeight: '600', fontSize: '13px' }}>
-                                    {course.pendingGrades} Assignments Pending
-                                </p>
-                                
-                                <div className="card-actions">
-                                    <button className="btn-primary">Manage</button>
-                                    <button className="btn-secondary">Grade</button>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
+                    {/* --- COURSE CARDS --- */}
+<div className="course-grid">
+    {/* Always show the Create card first */}
+    <div className="course-card create-new-card" onClick={() => navigate('/new-course')}>
+        <div style={{ fontSize: '3rem', color: '#27ae60' }}>+</div>
+        <h4 style={{ color: '#27ae60' }}>Create New Course</h4>
+    </div>
+
+    {courses.map(course => (
+        <div className="course-card" key={course.id}>
+            <div className="course-icon">
+                {/* Use a thumbnail if it exists, otherwise a default icon */}
+                {course.thumbnail ? <img src={course.thumbnail} alt="thumb" /> : "📚"}
+            </div>
+            <h4>{course.title}</h4>
+            <p style={{ fontSize: '13px', color: '#666' }}>
+                {course.description.substring(0, 80)}...
+            </p>
+            <div className="card-actions">
+                <button className="btn-primary" onClick={() => navigate(`/course/edit/${course.id}`)}>Edit</button>
+                <button className="btn-secondary">Analytics</button>
+            </div>
+        </div>
+    ))}
+</div>
                 </section>
             </main>
         </div>
