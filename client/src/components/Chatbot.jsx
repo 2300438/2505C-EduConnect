@@ -5,7 +5,7 @@ const Chatbot = () => {
     const [isOpen, setIsOpen] = useState(false);
     // Initialize with a generic greeting, or pull name from localStorage if available
     const [messages, setMessages] = useState([
-        { role: 'ai', text: "Hi! How can I help you with your ICT studies today?" }
+        { role: 'ai', text: "Hi! How can I help you with your studies today?" }
     ]);
     const [input, setInput] = useState("");
     const messagesEndRef = useRef(null);

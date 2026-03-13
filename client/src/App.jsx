@@ -10,7 +10,10 @@ import InstructorDashboard from './pages/Instructor-Dashboard';
 import NewCourse from './pages/New-Course';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import CoursePage from './pages/CoursePage';
+import EditCourse from './pages/EditCourse';
 import ProtectedRoute from './components/ProtectedRoute';
+
 
 // Components
 import Chatbot from './components/Chatbot';
@@ -30,15 +33,15 @@ const Navbar = () => {
   const isHomepage = location.pathname === '/';
 
   return (
-    <nav className="navbar" style={{ 
-      display: 'grid', 
+    <nav className="navbar" style={{
+      display: 'grid',
       gridTemplateColumns: '1fr auto 1fr', // This is the secret sauce
-      alignItems: 'center', 
-      padding: '1rem 2rem', 
-      background: '#fff', 
-      boxShadow: '0 2px 4px rgba(0,0,0,0.1)' 
+      alignItems: 'center',
+      padding: '1rem 2rem',
+      background: '#fff',
+      boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
     }}>
-      
+
       {/* 1. Left Section (Logo) */}
       <div className="nav-left" style={{ textAlign: 'left' }}>
         <Link to="/" style={{ fontSize: '1.5rem', fontWeight: 'bold', textDecoration: 'none' }}>
@@ -50,12 +53,12 @@ const Navbar = () => {
       <div className="nav-center" style={{ textAlign: 'center' }}>
         <ul style={{ display: 'inline-flex', listStyle: 'none', gap: '20px', margin: 0, padding: 0 }}>
           <li><Link to="/" style={{ textDecoration: 'none', color: '#333' }}>Home</Link></li>
-         {/* Only show Dashboard/Profile if logged in */}
+          {/* Only show Dashboard/Profile if logged in */}
           {isAuthenticated && user && (
             <>
               <li>
-                <Link 
-                  to={user.role === 'instructor' ? "/instructor-dashboard" : "/dashboard"} 
+                <Link
+                  to={user.role === 'instructor' ? "/instructor-dashboard" : "/dashboard"}
                   style={{ textDecoration: 'none', color: '#333' }}
                 >
                   Dashboard
@@ -76,7 +79,7 @@ const Navbar = () => {
              to keep the 1fr width on the right side! */
           isHomepage && (
             <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
-               <button onClick={() => navigate('/login')} style={{ backgroundColor: '#1976d2', color: '#fff', border: 'none', padding: '0.5rem 1rem', cursor: 'pointer' }}>
+              <button onClick={() => navigate('/login')} style={{ backgroundColor: '#1976d2', color: '#fff', border: 'none', padding: '0.5rem 1rem', cursor: 'pointer' }}>
                 Login
               </button>
             </div>
@@ -96,43 +99,68 @@ const AppContent = () => {
   return (
     <div className="app-container" style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
       <Navbar />
-      
+
       <main style={{ flex: 1 }}>
         <Routes>
-            {/* Public Routes */}
-            <Route path="/" element={<Home />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/register" element={<Register />} />
+          {/* Public Routes */}
+          <Route path="/" element={<Home />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
 
-            {/* Protected Student Routes */}
-            <Route path="/dashboard" element={
-              <ProtectedRoute allowedRole="student">
-                <Dashboard />
-              </ProtectedRoute>
-            } />
+          {/* Protected Student Routes */}
+          <Route path="/dashboard" element={
+            <ProtectedRoute allowedRole="student">
+              <Dashboard />
+            </ProtectedRoute>
+          } />
 
-            {/* Protected Instructor Routes */}
-            <Route path="/instructor-dashboard" element={
+          {/* Protected Instructor Routes */}
+          <Route
+            path="/Instructor-Dashboard"
+            element={
               <ProtectedRoute allowedRole="instructor">
                 <InstructorDashboard />
               </ProtectedRoute>
-            } />
-            <Route path="/new-course" element={
+            }
+          />
+
+          <Route
+            path="/New-Course"
+            element={
               <ProtectedRoute allowedRole="instructor">
                 <NewCourse />
               </ProtectedRoute>
-            } />
+            }
+          />
 
-            {/* General Protected Routes */}
-            <Route path="/profile" element={
-              <ProtectedRoute>
-                <Profile />
+          <Route
+            path="/courses/:id"
+            element={
+              <ProtectedRoute allowedRole="instructor">
+                <CoursePage />
               </ProtectedRoute>
-            } />
+            }
+          />
 
-            {/* Fallback */}
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
+          <Route
+            path="/course/edit/:id"
+            element={
+              <ProtectedRoute allowedRole="instructor">
+                <EditCourse />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* General Protected Routes */}
+          <Route path="/profile" element={
+            <ProtectedRoute>
+              <Profile />
+            </ProtectedRoute>
+          } />
+
+          {/* Fallback */}
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
       </main>
 
       {/* CONDITIONAL RENDERING */}

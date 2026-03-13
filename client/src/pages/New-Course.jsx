@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Formik, Form, FieldArray } from 'formik';
 import * as Yup from 'yup';
-import { upload } from '@vercel/blob/client';
 import { 
   Box, Container, TextField, Button, Typography, Paper, 
   IconButton, Divider, CircularProgress, Alert, Card 
@@ -16,7 +15,6 @@ const NewCourse = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  // 1. Initial Values: Crucial for preventing the "Cannot read properties of undefined (reading 'map')" error
   const initialValues = {
     title: '',
     description: '',
@@ -28,7 +26,6 @@ const NewCourse = () => {
     ]
   };
 
-  // 2. Validation Schema
   const validationSchema = Yup.object({
     title: Yup.string().required('Course title is required'),
     description: Yup.string().required('Description is required'),
@@ -38,7 +35,7 @@ const NewCourse = () => {
         subtopics: Yup.array().of(
           Yup.object({
             title: Yup.string().required('Lesson title required'),
-            videoFile: Yup.mixed().required('A video is required')
+            videoFile: Yup.mixed().required('A lesson file (video, PDF, Word, or PPT) is required')
           })
         )
       })
@@ -46,55 +43,61 @@ const NewCourse = () => {
   });
 
   const handleSubmit = async (values) => {
-    setLoading(true);
-    setError(null);
-    const token = localStorage.getItem("accessToken");
+  setLoading(true);
+  setError(null);
+  const token = localStorage.getItem("token");
 
-    try {
-      // 3. Process Nested Uploads to Vercel Blob
-      const processedTopics = await Promise.all(
-        (values.topics || []).map(async (topic) => {
-          const processedSubtopics = await Promise.all(
-            (topic.subtopics || []).map(async (sub) => {
-              // Upload video file to Vercel Blob
-              const blob = await upload(sub.videoFile.name, sub.videoFile, {
-                access: 'public',
-                handleUploadUrl: '/api/upload', 
-              });
-              return { title: sub.title, videoUrl: blob.url };
-            })
-          );
-          return { title: topic.title, subtopics: processedSubtopics };
-        })
-      );
+  try {
+    const formData = new FormData();
 
-      // 4. Send the data to your MySQL backend
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/courses`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          title: values.title,
-          description: values.description,
-          topics: processedTopics
-        }),
+    formData.append("title", values.title);
+    formData.append("description", values.description);
+
+    const topicsData = [];
+
+    values.topics.forEach((topic, tIndex) => {
+      const topicData = {
+        title: topic.title,
+        subtopics: [],
+      };
+
+      topic.subtopics.forEach((sub, sIndex) => {
+        if (sub.videoFile) {
+          formData.append(`file_${tIndex}_${sIndex}`, sub.videoFile);
+        }
+
+        topicData.subtopics.push({
+          title: sub.title,
+        });
       });
 
-      if (response.ok) {
-        navigate('/instructor-dashboard');
-      } else {
-        const data = await response.json();
-        setError(data.message || "Failed to save the course.");
-      }
-    } catch (err) {
-      setError("An error occurred. Check your connection and file sizes.");
-      console.error(err);
-    } finally {
-      setLoading(false);
+      topicsData.push(topicData);
+    });
+
+    formData.append("topicsData", JSON.stringify(topicsData));
+
+    const response = await fetch(`${import.meta.env.VITE_API_URL}/api/courses`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      body: formData,
+    });
+
+    const data = await response.json();
+
+    if (response.ok) {
+      navigate("/instructor-dashboard");
+    } else {
+      setError(data.message || "Failed to save the course.");
     }
-  };
+  } catch (err) {
+    console.error(err);
+    setError("An error occurred. Check your connection and file sizes.");
+  } finally {
+    setLoading(false);
+  }
+};
 
   return (
     <Container maxWidth="lg" sx={{ py: 5 }}>
@@ -112,7 +115,6 @@ const NewCourse = () => {
         >
           {({ values, handleChange, setFieldValue, errors, touched }) => (
             <Form>
-              {/* --- COURSE INFO --- */}
               <Box sx={{ mb: 4 }}>
                 <TextField
                   fullWidth label="Course Title" name="title"
@@ -125,12 +127,13 @@ const NewCourse = () => {
                   fullWidth multiline rows={2} label="Course Description"
                   name="description" variant="outlined" margin="normal"
                   value={values.description} onChange={handleChange}
+                  error={touched.description && !!errors.description}
+                  helperText={touched.description && errors.description}
                 />
               </Box>
 
               <Divider sx={{ mb: 4 }} />
 
-              {/* --- TOPICS SECTION --- */}
               <FieldArray name="topics">
                 {({ push: pushTopic, remove: removeTopic }) => (
                   <Box>
@@ -150,11 +153,12 @@ const NewCourse = () => {
                           name={`topics.${tIndex}.title`}
                           value={topic.title} onChange={handleChange}
                           sx={{ mb: 3, bgcolor: 'white' }}
+                          error={touched.topics?.[tIndex]?.title && Boolean(errors.topics?.[tIndex]?.title)}
+                          helperText={touched.topics?.[tIndex]?.title && errors.topics?.[tIndex]?.title}
                         />
 
-                        {/* --- NESTED SUBTOPICS SECTION --- */}
                         <Typography variant="subtitle2" sx={{ ml: 2, mb: 1, fontWeight: 'bold' }}>
-                          Subtopics & Videos
+                          Subtopics & Files
                         </Typography>
                         <FieldArray name={`topics.${tIndex}.subtopics`}>
                           {({ push: pushSub, remove: removeSub }) => (
@@ -166,16 +170,23 @@ const NewCourse = () => {
                                     name={`topics.${tIndex}.subtopics.${sIndex}.title`}
                                     value={sub.title} onChange={handleChange}
                                     size="small" sx={{ flex: 1, bgcolor: 'white' }}
+                                    error={touched.topics?.[tIndex]?.subtopics?.[sIndex]?.title && Boolean(errors.topics?.[tIndex]?.subtopics?.[sIndex]?.title)}
+                                    helperText={touched.topics?.[tIndex]?.subtopics?.[sIndex]?.title && errors.topics?.[tIndex]?.subtopics?.[sIndex]?.title}
                                   />
                                   
                                   <Button
                                     variant="outlined" component="label"
                                     startIcon={<VideoCallIcon />}
-                                    color={sub.videoFile ? "success" : "primary"}
+                                    color={
+                                      errors.topics?.[tIndex]?.subtopics?.[sIndex]?.videoFile && touched.topics?.[tIndex]?.subtopics?.[sIndex]?.title 
+                                        ? "error" 
+                                        : sub.videoFile ? "success" : "primary"
+                                    }
                                   >
-                                    {sub.videoFile ? "Video Added" : "Upload Video"}
+                                    {sub.videoFile ? "File Added" : "Upload Lesson File"}
+                                    {/* ---> UPDATED ACCEPT ATTRIBUTE TO ALLOW DOCUMENTS <--- */}
                                     <input
-                                      type="file" hidden accept="video/*"
+                                      type="file" hidden accept="video/*, .pdf, .doc, .docx, .ppt, .pptx"
                                       onChange={(e) => setFieldValue(`topics.${tIndex}.subtopics.${sIndex}.videoFile`, e.target.files[0])}
                                     />
                                   </Button>
@@ -187,6 +198,13 @@ const NewCourse = () => {
                                   )}
                                 </Box>
                               ))}
+                              
+                              {errors.topics?.[tIndex]?.subtopics?.[0]?.videoFile && touched.topics?.[tIndex]?.subtopics?.[0]?.title && (
+                                <Typography variant="caption" color="error" sx={{ display: 'block', mb: 2 }}>
+                                  * A file is required for each subtopic
+                                </Typography>
+                              )}
+
                               <Button 
                                 size="small" startIcon={<AddCircleOutlineIcon />}
                                 onClick={() => pushSub({ title: '', videoFile: null })}

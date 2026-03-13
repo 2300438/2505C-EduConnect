@@ -3,6 +3,8 @@ const cors = require('cors');
 require('dotenv').config();
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 
+const { handleUpload } = require('@vercel/blob/client');
+
 // --- 1. ADD THESE SPECIFIC IMPORTS ---
 const { sequelize, User } = require("./models"); 
 const protect = require("./middleware/validateToken"); 
@@ -33,6 +35,41 @@ app.use("/api/progress", progressRoutes);
 // Test route
 app.get("/", (req, res) => {
     res.json({ message: "EduConnect backend running." });
+});
+
+// --- VERCEL BLOB UPLOAD ROUTE ---
+// --- VERCEL BLOB UPLOAD ROUTE ---
+app.post('/api/upload', async (req, res) => {
+    try {
+        const jsonResponse = await handleUpload({
+            body: req.body,
+            request: req,
+            onBeforeGenerateToken: async (pathname) => {
+                return {
+                    allowedContentTypes: [
+                        'video/*', 
+                        'application/pdf', 
+                        'application/msword', 
+                        'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 
+                        'application/vnd.ms-powerpoint', 
+                        'application/vnd.openxmlformats-officedocument.presentationml.presentation'
+                    ],
+                    // Keep the 500MB size limit and extended timeout
+                    maximumSizeInBytes: 500 * 1024 * 1024, 
+                    validUntil: Date.now() + 600000, 
+                };
+            },
+            
+            onUploadCompleted: async ({ blob, tokenPayload }) => {
+                console.log('Vercel webhook confirmed upload for:', blob.url);
+            }
+        });
+
+        return res.status(200).json(jsonResponse);
+    } catch (error) {
+        console.error("Vercel Blob Upload Error:", error);
+        return res.status(400).json({ error: error.message });
+    }
 });
 
 // --- YOUR GEMINI AI SETUP ---
