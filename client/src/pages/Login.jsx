@@ -2,16 +2,16 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useFormik } from 'formik';
 import * as Yup from 'yup';
-import { 
-  Container, 
-  Box, 
-  Typography, 
-  TextField, 
-  Button, 
-  ToggleButton, 
-  ToggleButtonGroup, 
-  InputAdornment, 
-  Paper, 
+import {
+  Container,
+  Box,
+  Typography,
+  TextField,
+  Button,
+  ToggleButton,
+  ToggleButtonGroup,
+  InputAdornment,
+  Paper,
   Alert,
   CircularProgress
 } from '@mui/material';
@@ -45,8 +45,8 @@ const Login = () => {
         const response = await fetch(`${import.meta.env.VITE_API_URL}/auth/login`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            email: values.email, 
+          body: JSON.stringify({
+            email: values.email,
             password: values.password,
             role: role // Use the local state role for the request
           }),
@@ -57,7 +57,7 @@ const Login = () => {
         if (response.ok) {
           // 2. data.user and data.accessToken must exist from your backend
           login(data.user, data.accessToken);
-          
+
           // 3. Navigate based on the current active role
           navigate(role === 'instructor' ? '/instructor-dashboard' : '/dashboard');
         } else {
@@ -80,16 +80,16 @@ const Login = () => {
   }, [location.state]);
 
   return (
-    <Box sx={{ 
-      height: '100vh', width: '100vw', display: 'flex', 
-      alignItems: 'center', justifyContent: 'center', bgcolor: '#f5f5f5' 
+    <Box sx={{
+      height: '100vh', width: '100vw', display: 'flex',
+      alignItems: 'center', justifyContent: 'center', bgcolor: '#f5f5f5'
     }}>
       <Container maxWidth="xs">
         <Paper elevation={6} sx={{ borderRadius: 4, overflow: 'hidden' }}>
-          
+
           {/* Header Section: Dynamically changes color/icon */}
-          <Box sx={{ 
-            p: 4, textAlign: 'center', 
+          <Box sx={{
+            p: 4, textAlign: 'center',
             bgcolor: role === 'student' ? 'primary.main' : 'success.main',
             color: 'white', transition: 'background-color 0.3s ease'
           }}>
@@ -141,12 +141,12 @@ const Login = () => {
               <Box sx={{ mt: 1.5, mb: 1, textAlign: 'center' }}>
                 <Typography variant="body2" color="text.secondary">
                   Don't have an account?{' '}
-                  <Link 
-                    to="/register" 
-                    state={{ role: role }} 
-                    style={{ 
-                      color: role === 'student' ? '#1976d2' : '#2e7d32', 
-                      textDecoration: 'none', fontWeight: 'bold' 
+                  <Link
+                    to="/register"
+                    state={{ role: role }}
+                    style={{
+                      color: role === 'student' ? '#1976d2' : '#2e7d32',
+                      textDecoration: 'none', fontWeight: 'bold'
                     }}
                   >
                     Register here
@@ -157,7 +157,7 @@ const Login = () => {
               <Button
                 fullWidth type="submit" variant="contained" size="large"
                 disabled={formik.isSubmitting}
-                sx={{ 
+                sx={{
                   mt: 2, py: 1.5, borderRadius: 2, fontWeight: 'bold',
                   bgcolor: role === 'student' ? 'primary.main' : 'success.main',
                   '&:hover': { bgcolor: role === 'student' ? 'primary.dark' : 'success.dark' }

@@ -9,35 +9,11 @@ import Profile from './pages/Profile';
 import InstructorDashboard from './pages/Instructor-Dashboard';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import ProtectedRoute from './components/ProtectedRoute';
 
 // Components
 import Chatbot from './components/Chatbot';
 
-// --- 1. THE PROTECTED ROUTE (The Bouncer) ---
-const ProtectedRoute = ({ children, allowedRole }) => {
-  const { user, loading, isAuthenticated } = useAuth();
-
-  // Wait for AuthContext to check localStorage/API
-  if (loading) {
-    return (
-      <div style={{ display: 'flex', justifyContent: 'center', marginTop: '100px' }}>
-        <h2>Loading EduConnect...</h2>
-      </div>
-    );
-  }
-
-  // If not logged in, send to Login
-  if (!isAuthenticated || !user) {
-    return <Navigate to="/login" replace />;
-  }
-
-  // If role doesn't match, send to Home
-  if (allowedRole && user.role !== allowedRole) {
-    return <Navigate to="/" replace />;
-  }
-
-  return children;
-};
 
 // --- 2. THE NAVBAR COMPONENT ---
 const Navbar = () => {
@@ -99,13 +75,7 @@ const Navbar = () => {
                 onClick={() => navigate('/login', { state: { role: 'student' } })}
                 style={{ padding: '8px 16px', borderRadius: '5px', border: 'none', background: '#1976d2', color: '#fff', cursor: 'pointer' }}
               >
-                Student Login
-              </button>
-              <button 
-                onClick={() => navigate('/login', { state: { role: 'instructor' } })}
-                style={{ padding: '8px 16px', borderRadius: '5px', border: 'none', background: '#27ae60', color: '#fff', cursor: 'pointer' }}
-              >
-                Instructor Login
+                Login
               </button>
             </div>
           )
