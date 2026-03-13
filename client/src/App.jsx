@@ -14,13 +14,20 @@ import { useAuth } from './context/AuthContext'; // Ensure this path is correct
 const ProtectedRoute = ({ children, allowedRole }) => {
   const { user, loading, isAuthenticated } = useAuth();
 
+  // 1. MUST check loading first
   if (loading) return <div>Loading...</div>;
 
   if (!isAuthenticated) {
     return <Navigate to="/register" replace />;
+  // 2. If no user, redirect to login
+  if (!isAuthenticated || !user) {
+    return <Navigate to="/login" replace />;
   }
 
-  if (allowedRole && user?.role !== allowedRole) {
+  // 3. Use optional chaining for the role check
+  const hasAccess = allowedRole ? user?.role?.includes(allowedRole) : true;
+
+  if (!hasAccess) {
     return <Navigate to="/" replace />;
   }
 
@@ -65,11 +72,17 @@ const Navbar = () => {
 
     fetchUserData();
   }, [location]);
+  const { user, logout, isAuthenticated, loading } = useAuth();
+
+  // GUARD: If the AuthContext is still fetching the user from the token, 
+  // don't try to render the user-specific parts of the Nav.
+  if (loading) return <nav className="navbar">Loading...</nav>;
 
   const handleLogout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user'); // Also clear the user object
     setUser(null);
+    logout();
     navigate('/');
   };
 
@@ -81,6 +94,7 @@ const Navbar = () => {
         <Link to="/" className="logo">
           <span className="edu">Edu</span><span className="connect">Connect</span>
         </Link>
+        
         <ul className="nav-links">
           <li><Link to="/">Home</Link></li>
           {/* DYNAMIC DASHBOARD LINK: Directs based on role */}
@@ -90,10 +104,22 @@ const Navbar = () => {
             </Link>
           </li>
           <li><Link to="/profile">Profile</Link></li>
+          {/* SAFE CHECK: Ensure user exists before checking role */}
+          {isAuthenticated && user && (
+            <>
+              <li>
+                <Link to={user.role === 'instructor' ? "/instructor-dashboard" : "/dashboard"}>
+                  Dashboard
+                </Link>
+              </li>
+              <li><Link to="/profile">Profile</Link></li>
+            </>
+          )}
         </ul>
 
         <div className="nav-actions">
           {user ? (
+          {isAuthenticated && user ? (
             <div className="user-logged-in">
               <span className="user-name">Hi, {user.fullName || "User"}</span>
               <button onClick={handleLogout} className="btn-logout">Logout</button>
@@ -106,7 +132,6 @@ const Navbar = () => {
                   className="btn-login"
                   style={{ backgroundColor: '#1976d2', color: 'white', border: 'none' }}
                 >
-                  Login as Student
                 </button>
 
                 <button
@@ -115,7 +140,10 @@ const Navbar = () => {
                   style={{ backgroundColor: '#27ae60' }}
                 >
                   Login as Instructor
+                <button onClick={() => navigate('/login', { state: { role: 'student' } })} className="btn-login" style={{ backgroundColor: '#1976d2' , color: '#fff' }}>
+                  Login
                 </button>
+                
               </div>
             )
           )}
