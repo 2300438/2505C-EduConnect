@@ -36,13 +36,14 @@ const EditCourse = () => {
     topics: Yup.array().of(
       Yup.object({
         title: Yup.string().required('Topic title required'),
+        // Subtopics are now optional, matching NewCourse.jsx
         subtopics: Yup.array().of(
           Yup.object({
             title: Yup.string().required('Lesson title required'),
           })
-        ).min(1, 'At least one subtopic is required')
+        ).nullable()
       })
-    ).min(1, 'At least one topic is required')
+    ).nullable() // Topics array is also flexible now
   });
 
   useEffect(() => {
@@ -109,17 +110,20 @@ const EditCourse = () => {
           subtopics: [],
         };
 
-        topic.subtopics.forEach((sub, sIndex) => {
-          if (sub.videoFile) {
-            formData.append(`file_${tIndex}_${sIndex}`, sub.videoFile);
-          }
+        // Safety check: ensure subtopics exist before looping
+        if (topic.subtopics) {
+          topic.subtopics.forEach((sub, sIndex) => {
+            if (sub.videoFile) {
+              formData.append(`file_${tIndex}_${sIndex}`, sub.videoFile);
+            }
 
-          topicData.subtopics.push({
-            id: sub.id,
-            title: sub.title,
-            existingVideoUrl: sub.existingVideoUrl || '',
+            topicData.subtopics.push({
+              id: sub.id,
+              title: sub.title,
+              existingVideoUrl: sub.existingVideoUrl || '',
+            });
           });
-        });
+        }
 
         topicsData.push(topicData);
       });
@@ -134,7 +138,15 @@ const EditCourse = () => {
         body: formData,
       });
 
-      const data = await response.json();
+      const text = await response.text();
+      let data = {};
+
+      try {
+        data = text ? JSON.parse(text) : {};
+      } catch {
+        data = { message: text };
+      }
+
       console.log('Edit course response:', data);
 
       if (response.ok) {
@@ -217,7 +229,7 @@ const EditCourse = () => {
                 {({ push: pushTopic, remove: removeTopic }) => (
                   <Box>
                     {(values.topics || []).map((topic, tIndex) => (
-                      <Card key={tIndex} variant="outlined" sx={{ p: 3, mb: 4, bgcolor: '#f8f9fa' }}>
+                      <Card key={topic.id || tIndex} variant="outlined" sx={{ p: 3, mb: 4, bgcolor: '#f8f9fa' }}>
                         <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
                           <Typography variant="h6" color="primary">
                             Topic #{tIndex + 1}
@@ -249,7 +261,7 @@ const EditCourse = () => {
                             <Box sx={{ ml: 4 }}>
                               {(topic.subtopics || []).map((sub, sIndex) => (
                                 <Box
-                                  key={sIndex}
+                                  key={sub.id || sIndex}
                                   sx={{ display: 'flex', flexDirection: 'column', gap: 1, mb: 3 }}
                                 >
                                   <Box sx={{ display: 'flex', gap: 2, alignItems: 'start' }}>
@@ -336,7 +348,7 @@ const EditCourse = () => {
                       onClick={() =>
                         pushTopic({
                           title: '',
-                          subtopics: [{ title: '', existingVideoUrl: '', videoFile: null }],
+                          subtopics: [], // Empty array instead of a blank subtopic object!
                         })
                       }
                       sx={{ py: 1.5, borderStyle: 'dashed' }}

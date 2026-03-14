@@ -21,7 +21,7 @@ const NewCourse = () => {
     topics: [
       {
         title: '',
-        subtopics: [{ title: '', videoFile: null }]
+        subtopics: [] // <-- Starts with an empty array
       }
     ]
   };
@@ -32,72 +32,76 @@ const NewCourse = () => {
     topics: Yup.array().of(
       Yup.object({
         title: Yup.string().required('Topic title required'),
+        // 1. THIS IS THE FIX: Subtopics array is no longer required. 
         subtopics: Yup.array().of(
           Yup.object({
             title: Yup.string().required('Lesson title required'),
-            videoFile: Yup.mixed().required('A lesson file (video, PDF, Word, or PPT) is required')
+            videoFile: Yup.mixed().nullable() 
           })
-        )
+        ).nullable() 
       })
     )
   });
 
   const handleSubmit = async (values) => {
-  setLoading(true);
-  setError(null);
-  const token = localStorage.getItem("token");
+    setLoading(true);
+    setError(null);
+    const token = localStorage.getItem("token");
 
-  try {
-    const formData = new FormData();
+    try {
+      const formData = new FormData();
 
-    formData.append("title", values.title);
-    formData.append("description", values.description);
+      formData.append("title", values.title);
+      formData.append("description", values.description);
 
-    const topicsData = [];
+      const topicsData = [];
 
-    values.topics.forEach((topic, tIndex) => {
-      const topicData = {
-        title: topic.title,
-        subtopics: [],
-      };
+      values.topics.forEach((topic, tIndex) => {
+        const topicData = {
+          title: topic.title,
+          subtopics: [],
+        };
 
-      topic.subtopics.forEach((sub, sIndex) => {
-        if (sub.videoFile) {
-          formData.append(`file_${tIndex}_${sIndex}`, sub.videoFile);
+        // Added a check here just in case subtopics is undefined
+        if (topic.subtopics) {
+          topic.subtopics.forEach((sub, sIndex) => {
+            if (sub.videoFile) {
+              formData.append(`file_${tIndex}_${sIndex}`, sub.videoFile);
+            }
+
+            topicData.subtopics.push({
+              title: sub.title,
+            });
+          });
         }
 
-        topicData.subtopics.push({
-          title: sub.title,
-        });
+        topicsData.push(topicData);
       });
 
-      topicsData.push(topicData);
-    });
+      formData.append("topicsData", JSON.stringify(topicsData));
 
-    formData.append("topicsData", JSON.stringify(topicsData));
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/courses`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body: formData,
+      });
 
-    const response = await fetch(`${import.meta.env.VITE_API_URL}/api/courses`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-      body: formData,
-    });
+      const data = await response.json();
 
-    const data = await response.json();
-
-    if (response.ok) {
-      navigate("/instructor-dashboard");
-    } else {
-      setError(data.message || "Failed to save the course.");
+      if (response.ok) {
+        navigate("/instructor-dashboard");
+      } else {
+        setError(data.message || "Failed to save the course.");
+      }
+    } catch (err) {
+      console.error(err);
+      setError("An error occurred. Check your connection and file sizes.");
+    } finally {
+      setLoading(false);
     }
-  } catch (err) {
-    console.error(err);
-    setError("An error occurred. Check your connection and file sizes.");
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
   return (
     <Container maxWidth="lg" sx={{ py: 5 }}>
@@ -177,14 +181,9 @@ const NewCourse = () => {
                                   <Button
                                     variant="outlined" component="label"
                                     startIcon={<VideoCallIcon />}
-                                    color={
-                                      errors.topics?.[tIndex]?.subtopics?.[sIndex]?.videoFile && touched.topics?.[tIndex]?.subtopics?.[sIndex]?.title 
-                                        ? "error" 
-                                        : sub.videoFile ? "success" : "primary"
-                                    }
+                                    color={sub.videoFile ? "success" : "primary"}
                                   >
                                     {sub.videoFile ? "File Added" : "Upload Lesson File"}
-                                    {/* ---> UPDATED ACCEPT ATTRIBUTE TO ALLOW DOCUMENTS <--- */}
                                     <input
                                       type="file" hidden accept="video/*, .pdf, .doc, .docx, .ppt, .pptx"
                                       onChange={(e) => setFieldValue(`topics.${tIndex}.subtopics.${sIndex}.videoFile`, e.target.files[0])}
@@ -199,12 +198,6 @@ const NewCourse = () => {
                                 </Box>
                               ))}
                               
-                              {errors.topics?.[tIndex]?.subtopics?.[0]?.videoFile && touched.topics?.[tIndex]?.subtopics?.[0]?.title && (
-                                <Typography variant="caption" color="error" sx={{ display: 'block', mb: 2 }}>
-                                  * A file is required for each subtopic
-                                </Typography>
-                              )}
-
                               <Button 
                                 size="small" startIcon={<AddCircleOutlineIcon />}
                                 onClick={() => pushSub({ title: '', videoFile: null })}
@@ -220,7 +213,8 @@ const NewCourse = () => {
                     <Button
                       variant="outlined" fullWidth
                       startIcon={<AddCircleOutlineIcon />}
-                      onClick={() => pushTopic({ title: '', subtopics: [{ title: '', videoFile: null }] })}
+                      // 2. THIS IS THE FIX: New topics now push an empty subtopics array
+                      onClick={() => pushTopic({ title: '', subtopics: [] })}
                       sx={{ py: 1.5, borderStyle: 'dashed' }}
                     >
                       Add New Topic

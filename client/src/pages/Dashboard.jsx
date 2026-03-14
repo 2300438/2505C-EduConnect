@@ -1,11 +1,11 @@
 import React from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext'; // Import this!
+import { useAuth } from '../context/AuthContext';
 import '../styles/dashboard.css';
 
 const Dashboard = () => {
     const navigate = useNavigate();
-    const { user } = useAuth(); // Get the real user name!
+    const { user, logout } = useAuth();
 
     const courses = [
         { id: 'ICT2503', name: "Cryptography Fundamentals", task: "RSA Algorithm Quiz", progress: '75%', icon: "📜" },
@@ -15,7 +15,6 @@ const Dashboard = () => {
 
     return (
         <div className="dashboard-container">
-            {/* --- SIDEBAR --- */}
             <aside className="sidebar">
                 <ul className="sidebar-menu">
                     <li>
@@ -34,23 +33,16 @@ const Dashboard = () => {
                             👤 View Profile
                         </button>
                     </li>
-                    {/* Replaced <br> with a styled list item to push the logout button down */}
-                    <li><button onClick={() => navigate('/dashboard')} className="active">🏠 Dashboard</button></li>
-                    <li><Link to="/courses">📚 My Courses</Link></li>
-                    <li><Link to="/quizzes">📋 Quizzes</Link></li>
-                    <li><button onClick={() => navigate('/profile')}>👤 View Profile</button></li>
                     <li style={{ marginTop: '40px' }}>
-                        <button onClick={() => navigate('/')}>
+                        <button onClick={() => { logout(); navigate('/'); }}>
                             🚪 Log Out
                         </button>
-                        <button onClick={() => navigate('/')}>🚪 Log Out</button>
                     </li>
                 </ul>
             </aside>
 
             <main className="main-content">
                 <header className="dashboard-header">
-                    {/* Use optional chaining here too! */}
                     <h2>Welcome back, {user?.fullName || 'Student'}! 👋</h2>
                     <p>Here is an overview of your learning progress.</p>
                 </header>

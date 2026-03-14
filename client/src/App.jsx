@@ -35,7 +35,7 @@ const Navbar = () => {
   return (
     <nav className="navbar" style={{
       display: 'grid',
-      gridTemplateColumns: '1fr auto 1fr', // This is the secret sauce
+      gridTemplateColumns: '1fr auto 1fr',
       alignItems: 'center',
       padding: '1rem 2rem',
       background: '#fff',
@@ -70,16 +70,34 @@ const Navbar = () => {
         </ul>
       </div>
 
-      {/* 3. Right Section (Buttons or Logout) */}
+      {/* 3. Right Section (Name & Logout) */}
       <div className="nav-right" style={{ textAlign: 'right' }}>
         {isAuthenticated && user ? (
-          <button onClick={handleLogout}>Logout</button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '15px', justifyContent: 'flex-end' }}>
+            <span style={{ fontWeight: '500', color: '#333' }}>
+              {/* Uses fullName, with a fallback to name just in case */}
+              Hello, {user.fullName || user.name}! 
+            </span>
+            <button 
+              onClick={handleLogout} 
+              style={{ 
+                backgroundColor: '#e74c3c', 
+                color: '#fff', 
+                border: 'none', 
+                padding: '0.4rem 0.8rem', 
+                cursor: 'pointer',
+                borderRadius: '4px'
+              }}
+            >
+              Logout
+            </button>
+          </div>
         ) : (
           /* This only shows on the Home page, but the 'div' stays here 
              to keep the 1fr width on the right side! */
           isHomepage && (
             <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
-              <button onClick={() => navigate('/login')} style={{ backgroundColor: '#1976d2', color: '#fff', border: 'none', padding: '0.5rem 1rem', cursor: 'pointer' }}>
+              <button onClick={() => navigate('/login')} style={{ backgroundColor: '#1976d2', color: '#fff', border: 'none', padding: '0.5rem 1rem', cursor: 'pointer', borderRadius: '4px' }}>
                 Login
               </button>
             </div>
@@ -91,10 +109,9 @@ const Navbar = () => {
 };
 const AppContent = () => {
   const { isAuthenticated, user } = useAuth();
-  const location = useLocation();
 
-  // Logic: Show only if logged in AND on the homepage
-  const showChatbot = isAuthenticated && user && location.pathname === '/';
+  // Show chatbot on every page as long as user is logged in
+  const showChatbot = isAuthenticated && user;
 
   return (
     <div className="app-container" style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
@@ -163,7 +180,6 @@ const AppContent = () => {
         </Routes>
       </main>
 
-      {/* CONDITIONAL RENDERING */}
       {showChatbot && <Chatbot />}
     </div>
   );
