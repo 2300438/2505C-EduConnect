@@ -133,7 +133,7 @@ const AppContent = () => {
 
           {/* Protected Instructor Routes */}
           <Route
-            path="/Instructor-Dashboard"
+            path="/instructor-dashboard"
             element={
               <ProtectedRoute allowedRole="instructor">
                 <InstructorDashboard />
@@ -142,7 +142,7 @@ const AppContent = () => {
           />
 
           <Route
-            path="/New-Course"
+            path="/new-course"
             element={
               <ProtectedRoute allowedRole="instructor">
                 <NewCourse />
@@ -153,7 +153,7 @@ const AppContent = () => {
           <Route
             path="/courses/:id"
             element={
-              <ProtectedRoute allowedRole="instructor">
+              <ProtectedRoute>
                 <CoursePage />
               </ProtectedRoute>
             }

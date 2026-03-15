@@ -16,8 +16,9 @@ const Enrollment = sequelize.define("Enrollment", {
     allowNull: false,
   },
   status: {
-    type: DataTypes.ENUM("active", "completed"),
-    defaultValue: "active",
+    type: DataTypes.ENUM("pending", "approved", "rejected"),
+    allowNull: false,
+    defaultValue: "pending",
   },
 }, {
   tableName: "enrollments",

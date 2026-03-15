@@ -24,10 +24,10 @@ Course.belongsToMany(User, {
 });
 
 User.hasMany(Enrollment, { foreignKey: "userId" });
-Enrollment.belongsTo(User, { foreignKey: "userId" });
+Enrollment.belongsTo(User, { foreignKey: "userId", as: "user" });
 
 Course.hasMany(Enrollment, { foreignKey: "courseId" });
-Enrollment.belongsTo(Course, { foreignKey: "courseId" });
+Enrollment.belongsTo(Course, { foreignKey: "courseId", as: "course" });
 
 User.hasMany(Progress, { foreignKey: "userId" });
 Progress.belongsTo(User, { foreignKey: "userId" });

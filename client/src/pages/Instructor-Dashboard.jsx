@@ -1,36 +1,47 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import api from '../api';
 import '../styles/dashboard.css';
 
 const InstructorDashboard = () => {
   const navigate = useNavigate();
   const { logout, user } = useAuth();
+
   const [courses, setCourses] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [selectedCourseId, setSelectedCourseId] = useState(null);
+  const [pendingEnrollments, setPendingEnrollments] = useState([]);
+  const [pendingLoading, setPendingLoading] = useState(false);
+
+  const getThumbnailSrc = (thumbnail) => {
+    if (!thumbnail) return null;
+
+    // If backend already returns full URL
+    if (thumbnail.startsWith('http')) return thumbnail;
+
+    // If backend returns relative uploads path, adjust this if needed
+    return `${import.meta.env.VITE_API_URL}${thumbnail}`;
+  };
 
   useEffect(() => {
     const fetchMyCourses = async () => {
       try {
-        const token = localStorage.getItem("token");
+        setLoading(true);
+        setError('');
 
-        const response = await fetch(`${import.meta.env.VITE_API_URL}/api/courses/instructor/me`, {
-          method: "GET",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        });
+        const response = await api.get('/courses/instructor/me');
 
-        const data = await response.json();
+        // Change this depending on actual backend response shape
+        const courseData = Array.isArray(response.data)
+          ? response.data
+          : response.data.courses || [];
 
-        if (response.ok) {
-          setCourses(data);
-        } else {
-          console.error("Failed to fetch courses:", data);
-        }
+        setCourses(courseData);
       } catch (error) {
-        console.error("Error fetching instructor courses:", error);
+        console.error('Error fetching instructor courses:', error);
+        setError('Failed to load your courses.');
       } finally {
         setLoading(false);
       }
@@ -38,6 +49,43 @@ const InstructorDashboard = () => {
 
     fetchMyCourses();
   }, []);
+
+  const handleLogout = () => {
+    logout();
+    navigate('/');
+  };
+
+  const fetchPendingEnrollments = async (courseId) => {
+    try {
+      setPendingLoading(true);
+      setSelectedCourseId(courseId);
+      const response = await api.get(`/courses/${courseId}/pending-enrollments`);
+      setPendingEnrollments(response.data);
+    } catch (error) {
+      console.error('Error fetching pending enrollments:', error);
+      setPendingEnrollments([]);
+    } finally {
+      setPendingLoading(false);
+    }
+  };
+
+  const handleApprove = async (enrollmentId) => {
+    try {
+      await api.put(`/courses/enrollments/${enrollmentId}/approve`);
+      setPendingEnrollments((prev) => prev.filter((item) => item.id !== enrollmentId));
+    } catch (error) {
+      console.error('Error approving enrollment:', error);
+    }
+  };
+
+  const handleReject = async (enrollmentId) => {
+    try {
+      await api.put(`/courses/enrollments/${enrollmentId}/reject`);
+      setPendingEnrollments((prev) => prev.filter((item) => item.id !== enrollmentId));
+    } catch (error) {
+      console.error('Error rejecting enrollment:', error);
+    }
+  };
 
   return (
     <div className="dashboard-container">
@@ -48,10 +96,14 @@ const InstructorDashboard = () => {
               👨‍🏫 Instructor Home
             </button>
           </li>
-          <li><Link to="/manage-courses">📝 Manage Courses</Link></li>
-          <li><button onClick={() => navigate('/profile')}>👤 Profile</button></li>
+          <li>
+            <Link to="/manage-courses">📝 Manage Courses</Link>
+          </li>
+          <li>
+            <button onClick={() => navigate('/profile')}>👤 Profile</button>
+          </li>
           <li style={{ marginTop: '40px' }}>
-            <button onClick={() => { logout(); navigate('/'); }}>🚪 Log Out</button>
+            <button onClick={handleLogout}>🚪 Log Out</button>
           </li>
         </ul>
       </aside>
@@ -65,9 +117,11 @@ const InstructorDashboard = () => {
         <section className="enrolled-courses">
           <h3>Your Teaching Modules</h3>
 
-          {loading ? (
-            <p>Loading courses...</p>
-          ) : (
+          {loading && <p>Loading courses...</p>}
+
+          {error && <p className="error-message">{error}</p>}
+
+          {!loading && !error && (
             <div className="course-grid">
               <div
                 className="course-card create-new-card"
@@ -78,41 +132,114 @@ const InstructorDashboard = () => {
                 <h4 style={{ color: '#27ae60' }}>Create New Course</h4>
               </div>
 
-              {courses.map((course) => (
-                <div className="course-card" key={course.id}>
-                  <div className="course-icon">
-                    {course.thumbnail ? (
-                      <img src={course.thumbnail} alt="thumb" />
-                    ) : (
-                      "📚"
-                    )}
+              {courses.length === 0 ? (
+                <p>No courses created yet.</p>
+              ) : (
+                courses.map((course) => (
+                  <div className="course-card" key={course.id}>
+                    <div className="course-icon">
+                      {course.thumbnail ? (
+                        <img
+                          src={getThumbnailSrc(course.thumbnail)}
+                          alt={course.title || 'Course thumbnail'}
+                        />
+                      ) : (
+                        '📚'
+                      )}
+                    </div>
+
+                    <h4>{course.title || 'Untitled Course'}</h4>
+
+                    <p style={{ fontSize: '13px', color: '#666' }}>
+                      {course.description
+                        ? course.description.length > 80
+                          ? `${course.description.substring(0, 80)}...`
+                          : course.description
+                        : 'No description available.'}
+                    </p>
+
+                    <div className="card-actions">
+                      <button
+                        className="btn-primary"
+                        onClick={() => navigate(`/courses/${course.id}`)}
+                      >
+                        Open
+                      </button>
+
+                      <button
+                        className="btn-secondary"
+                        onClick={() => navigate(`/course/edit/${course.id}`)}
+                      >
+                        Edit
+                      </button>
+                      <button
+                        className="btn-secondary"
+                        onClick={() => fetchPendingEnrollments(course.id)}
+                      >
+                        Pending Students
+                      </button>
+                    </div>
                   </div>
+                ))
+              )}
+            </div>
+          )}
+          {selectedCourseId && (
+            <div
+              style={{
+                background: '#fff',
+                borderRadius: '12px',
+                padding: '20px',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+                marginTop: '24px'
+              }}
+            >
+              <h3>Pending Students</h3>
 
-                  <h4>{course.title}</h4>
+              {pendingLoading ? (
+                <p>Loading pending students...</p>
+              ) : pendingEnrollments.length === 0 ? (
+                <p>No pending students for this course.</p>
+              ) : (
+                pendingEnrollments.map((item) => (
+                  <div
+                    key={item.id}
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      borderBottom: '1px solid #eee',
+                      padding: '12px 0',
+                      gap: '16px'
+                    }}
+                  >
+                    <div>
+                      <div style={{ fontWeight: 600 }}>
+                        {item.user?.fullName || item.user?.name || 'Student'}
+                      </div>
+                      <div style={{ fontSize: '13px', color: '#666' }}>
+                        {item.user?.email || 'No email'}
+                      </div>
+                    </div>
 
-                  <p style={{ fontSize: '13px', color: '#666' }}>
-                    {course.description?.length > 80
-                      ? `${course.description.substring(0, 80)}...`
-                      : course.description}
-                  </p>
+                    <div style={{ display: 'flex', gap: '10px' }}>
+                      <button
+                        className="btn-primary"
+                        onClick={() => handleApprove(item.id)}
+                      >
+                        Approve
+                      </button>
 
-                  <div className="card-actions">
-                    <button
-                      className="btn-primary"
-                      onClick={() => navigate(`/courses/${course.id}`)}
-                    >
-                      Open
-                    </button>
-
-                    <button
-                      className="btn-secondary"
-                      onClick={() => navigate(`/course/edit/${course.id}`)}
-                    >
-                      Edit
-                    </button>
+                      <button
+                        className="btn-secondary"
+                        onClick={() => handleReject(item.id)}
+                      >
+                        Reject
+                      </button>
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))
+              )}
             </div>
           )}
         </section>

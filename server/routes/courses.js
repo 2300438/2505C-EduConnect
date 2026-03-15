@@ -3,7 +3,7 @@ const yup = require("yup");
 const multer = require("multer");
 const { put } = require("@vercel/blob");
 const upload = multer({ storage: multer.memoryStorage() });
-const { Course, User, Topic, Subtopic } = require("../models");
+const { Course, User, Topic, Subtopic, Enrollment } = require("../models");
 const validateToken = require("../middleware/validateToken");
 
 const router = express.Router();
@@ -17,14 +17,14 @@ const courseSchema = yup.object({
   topics: yup.array().of(
     yup.object({
       title: yup.string().trim().required("Topic title is required"),
-      
+
       subtopics: yup.array().of(
         yup.object({
           title: yup.string().trim().required("Subtopic title is required"),
           videoUrl: yup.string().trim().url("Must be a valid URL").nullable()
         })
-      ).nullable() 
-      
+      ).nullable()
+
     })
   ).min(1, "A course must have at least one topic").required()
 });
@@ -72,18 +72,8 @@ router.get("/:id", async (req, res) => {
           model: User,
           as: "instructor",
           attributes: ["id", "fullName", "email"],
-        },
-        {
-          model: Topic,
-          as: "topics",
-          include: [
-            {
-              model: Subtopic,
-              as: "subtopics",
-            }
-          ]
         }
-      ],
+      ]
     });
 
     if (!course) {
@@ -115,7 +105,7 @@ router.post("/", validateToken, upload.any(), async (req, res) => {
       await Promise.all(
         req.files.map(async (file) => {
           const blob = await put(`${Date.now()}-${file.originalname}`, file.buffer, {
-            access: "private",
+            access: "public",
             token: process.env.BLOB_READ_WRITE_TOKEN,
           });
           uploadedFiles.push({ fieldname: file.fieldname, url: blob.url });
@@ -222,7 +212,7 @@ router.put("/:id", validateToken, upload.any(), async (req, res) => {
       await Promise.all(
         req.files.map(async (file) => {
           const blob = await put(`${Date.now()}-${file.originalname}`, file.buffer, {
-            access: "private",
+            access: "public",
             token: process.env.BLOB_READ_WRITE_TOKEN,
           });
           uploadedFiles.push({ fieldname: file.fieldname, url: blob.url });
@@ -371,6 +361,211 @@ router.put("/:id", validateToken, upload.any(), async (req, res) => {
       message: "Course update failed.",
       errors: errorMessages,
     });
+  }
+});
+
+// --- STUDENT ENROLL IN COURSE ---
+router.post("/:courseId/enroll", validateToken, async (req, res) => {
+  try {
+    const courseId = req.params.courseId;
+    const userId = req.user.id;
+    if (req.user.role !== "student") {
+      return res.status(403).json({ message: "Only students can enroll in courses." });
+    }
+    const course = await Course.findByPk(courseId);
+
+    if (!course) {
+      return res.status(404).json({ message: "Course not found." });
+    }
+
+    const existingEnrollment = await Enrollment.findOne({
+      where: { userId, courseId },
+    });
+
+    if (existingEnrollment) {
+      return res.status(400).json({
+        message: `You already have an enrollment request with status: ${existingEnrollment.status}`,
+      });
+    }
+
+    const enrollment = await Enrollment.create({
+      userId,
+      courseId,
+      status: "pending",
+    });
+
+    res.status(201).json({
+      message: "Enrollment request submitted successfully",
+      enrollment,
+    });
+
+  } catch (error) {
+    console.error("Enrollment error:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+
+// INSTRUCTOR: GET PENDING ENROLLMENTS
+router.get("/:courseId/pending-enrollments", validateToken, async (req, res) => {
+  try {
+    const courseId = req.params.courseId;
+    const userId = req.user.id;
+
+    const course = await Course.findByPk(courseId);
+
+    if (!course) {
+      return res.status(404).json({ message: "Course not found." });
+    }
+
+    if (course.instructorId !== userId) {
+      return res.status(403).json({ message: "Not authorized." });
+    }
+
+    const enrollments = await Enrollment.findAll({
+      where: {
+        courseId,
+        status: "pending",
+      },
+      include: [
+        {
+          model: User,
+          as: "user",
+          attributes: ["id", "name", "email"],
+        },
+      ],
+    });
+
+    res.json(enrollments);
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// INSTRUCTOR: APPROVE ENROLLMENT
+router.put("/enrollments/:id/approve", validateToken, async (req, res) => {
+  try {
+    const enrollment = await Enrollment.findByPk(req.params.id, {
+      include: [{ model: Course, as: "course" }],
+    });
+
+    if (!enrollment) {
+      return res.status(404).json({ message: "Enrollment not found." });
+    }
+
+    if (enrollment.course.instructorId !== req.user.id) {
+      return res.status(403).json({ message: "Not authorized." });
+    }
+
+    enrollment.status = "approved";
+    await enrollment.save();
+
+    res.json({ message: "Student approved." });
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// INSTRUCTOR: REJECT ENROLLMENT
+router.put("/enrollments/:id/reject", validateToken, async (req, res) => {
+  try {
+    const enrollment = await Enrollment.findByPk(req.params.id, {
+      include: [{ model: Course, as: "course" }],
+    });
+
+    if (!enrollment) {
+      return res.status(404).json({ message: "Enrollment not found." });
+    }
+
+    if (enrollment.course.instructorId !== req.user.id) {
+      return res.status(403).json({ message: "Not authorized." });
+    }
+
+    enrollment.status = "rejected";
+    await enrollment.save();
+
+    res.json({ message: "Student rejected." });
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// STUDENT/INSTRUCTOR: GET COURSE TOPICS
+router.get("/:courseId/topics", validateToken, async (req, res) => {
+  try {
+    const courseId = parseInt(req.params.courseId, 10);
+    const userId = req.user.id;
+
+    const course = await Course.findByPk(courseId);
+
+    if (!course) {
+      return res.status(404).json({ message: "Course not found." });
+    }
+
+    const isInstructor = course.instructorId === userId;
+
+    if (!isInstructor) {
+      const enrollment = await Enrollment.findOne({
+        where: {
+          userId,
+          courseId,
+          status: "approved",
+        },
+      });
+
+      if (!enrollment) {
+        return res.status(403).json({
+          message: "Access denied. You are not approved for this course yet.",
+        });
+      }
+    }
+
+    const topics = await Topic.findAll({
+      where: { courseId },
+      include: [
+        {
+          model: Subtopic,
+          as: "subtopics",
+        },
+      ],
+      order: [["createdAt", "ASC"]],
+    });
+
+    res.json(topics);
+
+  } catch (error) {
+    console.error("Get course topics error:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// STUDENT: GET MY ENROLLMENT STATUS FOR A COURSE
+router.get("/:courseId/my-enrollment", validateToken, async (req, res) => {
+  try {
+    const courseId = parseInt(req.params.courseId, 10);
+    const userId = req.user.id;
+
+    const enrollment = await Enrollment.findOne({
+      where: { userId, courseId },
+    });
+
+    if (!enrollment) {
+      return res.json({ status: null });
+    }
+
+    res.json({
+      status: enrollment.status,
+      enrollment,
+    });
+  } catch (error) {
+    console.error("Get my enrollment error:", error);
+    res.status(500).json({ message: "Server error" });
   }
 });
 

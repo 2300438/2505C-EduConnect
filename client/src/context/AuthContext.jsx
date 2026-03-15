@@ -11,10 +11,15 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const storedUser = localStorage.getItem('user');
     const storedToken = localStorage.getItem('token');
-
-    if (storedUser && storedToken) {
-      setUser(JSON.parse(storedUser));
-      setToken(storedToken);
+    try {
+      if (storedUser && storedToken) {
+        setUser(JSON.parse(storedUser));
+        setToken(storedToken);
+      }
+    } catch (error) {
+      console.error("Failed to restore auth session:", error);
+      localStorage.removeItem('user');
+      localStorage.removeItem('token');
     }
     setLoading(false);
   }, []);
@@ -39,14 +44,14 @@ export const AuthProvider = ({ children }) => {
   const isAuthenticated = !!token;
 
   return (
-    <AuthContext.Provider value={{ 
-      user, 
-      token, 
-      loading, 
-      login, 
-      logout, 
+    <AuthContext.Provider value={{
+      user,
+      token,
+      loading,
+      login,
+      logout,
       isAuthenticated,
-      role: user?.role || null 
+      role: user?.role || null
     }}>
       {!loading && children}
     </AuthContext.Provider>

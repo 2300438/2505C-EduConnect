@@ -59,7 +59,7 @@ const Login = () => {
           login(data.user, data.accessToken);
 
           // 3. Navigate based on the current active role
-          navigate(role === 'instructor' ? '/instructor-dashboard' : '/dashboard');
+          navigate(data.user.role === 'instructor' ? '/instructor-dashboard' : '/dashboard');
         } else {
           setStatus(data.message || "Invalid credentials");
         }
