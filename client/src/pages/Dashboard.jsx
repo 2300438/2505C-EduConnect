@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import api from '../api';
+import api from '../services/api';
 import '../styles/dashboard.css';
 
 const Dashboard = () => {
@@ -29,31 +29,40 @@ const Dashboard = () => {
                 setLoading(true);
                 setError('');
 
-                // Change this endpoint to match your backend
-                const response = await api.get('/course/my-courses');
+                // 1. Check if user exists before fetching
+                if (!user || !user.id) return;
 
-                // Adjust depending on your backend response shape
-                const courseData = response.data || [];
+                // 2. Hit the exact backend route you built for the student dashboard
+                const response = await api.get(`/dashboard/student/${user.id}`);
 
-                const formattedCourses = courseData.map((course) => ({
-                    id: course.courseCode || course.id,
-                    name: course.title || course.name || 'Untitled Course',
-                    task: course.nextTask || 'No upcoming task',
-                    progress: Number(course.progress || 0),
-                    icon: getCourseIcon(course.title || course.name || '')
-                }));
+                // 3. Extract the 'enrollments' array from the JSON object your backend sent
+                const enrollmentData = response.data.enrollments || [];
+                const approvedCourses = enrollmentData.filter(e => e.status === 'approved');
+
+                const formattedCourses = approvedCourses.map((enrollment) => {
+                    // Note: ensure the alias 'course' or 'Course' matches your index.js
+                    const courseDetails = enrollment.course || enrollment.Course || {};
+
+                    return {
+                        id: courseDetails.id || enrollment.courseId,
+                        name: courseDetails.title || 'Untitled Course',
+                        task: 'Continue learning',
+                        progress: 0,
+                        icon: getCourseIcon(courseDetails.title || '')
+                    };
+                });
 
                 setCourses(formattedCourses);
             } catch (err) {
-                console.error('Failed to fetch dashboard courses:', err);
-                setError('Failed to load your courses.');
+                console.error('Failed to fetch dashboard courses:', err.response?.data || err.message);
+                setError(err.response?.data?.message || 'Failed to load your courses.');
             } finally {
                 setLoading(false);
             }
         };
 
         fetchDashboardCourses();
-    }, []);
+    }, [user]); // <-- Added 'user' to the dependency array
 
     const handleLogout = () => {
         logout();

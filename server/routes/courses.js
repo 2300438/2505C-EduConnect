@@ -431,7 +431,7 @@ router.get("/:courseId/pending-enrollments", validateToken, async (req, res) => 
         {
           model: User,
           as: "user",
-          attributes: ["id", "name", "email"],
+          attributes: ["id", "fullName", "email"],
         },
       ],
     });
@@ -459,14 +459,24 @@ router.put("/enrollments/:id/approve", validateToken, async (req, res) => {
       return res.status(403).json({ message: "Not authorized." });
     }
 
+    // Update status to approved
     enrollment.status = "approved";
     await enrollment.save();
 
-    res.json({ message: "Student approved." });
+    // Create or find progress record
+    await Progress.findOrCreate({
+      where: { userId: enrollment.userId, courseId: enrollment.courseId },
+      defaults: {
+        progressPercent: 0,
+        lastAccessedAt: new Date(),
+      }
+    });
 
+    // Return a clean 200 status with a JSON object
+    return res.status(200).json({ success: true, message: "Student approved." });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server error" });
+    console.error("Approval error:", error);
+    return res.status(500).json({ success: false, message: "Server error during approval." });
   }
 });
 
@@ -488,11 +498,10 @@ router.put("/enrollments/:id/reject", validateToken, async (req, res) => {
     enrollment.status = "rejected";
     await enrollment.save();
 
-    res.json({ message: "Student rejected." });
-
+    return res.status(200).json({ success: true, message: "Student rejected." });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: "Server error" });
+    console.error("Rejection error:", error);
+    return res.status(500).json({ success: false, message: "Server error during rejection." });
   }
 });
 

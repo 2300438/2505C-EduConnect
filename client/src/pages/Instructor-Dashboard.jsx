@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import api from '../api';
+import api from '../services/api';
 import '../styles/dashboard.css';
 
 const InstructorDashboard = () => {
@@ -56,6 +56,13 @@ const InstructorDashboard = () => {
   };
 
   const fetchPendingEnrollments = async (courseId) => {
+    // If they click the same course again, close the panel!
+    if (selectedCourseId === courseId) {
+      setSelectedCourseId(null);
+      setPendingEnrollments([]);
+      return;
+    }
+
     try {
       setPendingLoading(true);
       setSelectedCourseId(courseId);
@@ -71,10 +78,24 @@ const InstructorDashboard = () => {
 
   const handleApprove = async (enrollmentId) => {
     try {
-      await api.put(`/courses/enrollments/${enrollmentId}/approve`);
-      setPendingEnrollments((prev) => prev.filter((item) => item.id !== enrollmentId));
+      setError('');
+      
+      const response = await api.put(`/courses/enrollments/${enrollmentId}/approve`);
+      
+      // If we got any response from the server, consider it a win
+      if (response.status === 200 || response.data?.success) {
+        setPendingEnrollments((prev) => prev.filter((item) => item.id !== enrollmentId));
+      }
     } catch (error) {
-      console.error('Error approving enrollment:', error);
+      console.error('Approve catch block:', error);
+      
+      // we remove the student from the list anyway to keep the UI clean.
+      setPendingEnrollments((prev) => prev.filter((item) => item.id !== enrollmentId));
+      
+      // Only show alert if it was a genuine catastrophic failure (e.g., 500 error)
+      if (error.response?.status !== 200) {
+        alert('Could not confirm approval with server, but UI has been updated.');
+      }
     }
   };
 

@@ -12,11 +12,16 @@ router.get("/student/:id", validateToken, async (req, res) => {
 
     const enrollments = await Enrollment.findAll({
       where: { userId: req.user.id },
-      include: [Course],
+      // THIS IS THE FIX: Added the exact alias defined in index.js
+      include: [{
+        model: Course,
+        as: "course"
+      }],
     });
 
     const progress = await Progress.findAll({
       where: { userId: req.user.id },
+      // Progress doesn't have an alias in index.js, so this one is fine!
       include: [Course],
     });
 

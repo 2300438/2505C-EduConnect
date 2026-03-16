@@ -49,9 +49,11 @@ router.post("/register", async (req, res) => {
   }
 });
 
+// 1. THIS IS THE FIX: Added 'role' to the login validation schema
 const loginSchema = yup.object({
   email: yup.string().trim().email().required(),
   password: yup.string().required(),
+  role: yup.string().oneOf(["student", "instructor"]).required(), 
 });
 
 router.post("/login", async (req, res) => {
@@ -66,6 +68,13 @@ router.post("/login", async (req, res) => {
     const isPasswordValid = await bcrypt.compare(data.password, user.password);
     if (!isPasswordValid) {
       return res.status(401).json({ message: "Invalid email or password." });
+    }
+
+    // 2. THIS IS THE FIX: Check if the requested role matches the database
+    if (user.role !== data.role) {
+      return res.status(403).json({ 
+        message: `Account found, but you are registered as a ${user.role}. Please switch tabs.` 
+      });
     }
 
     const accessToken = jwt.sign(

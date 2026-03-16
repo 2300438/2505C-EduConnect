@@ -12,6 +12,7 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import CoursePage from './pages/CoursePage';
 import EditCourse from './pages/EditCourse';
+import BrowseCourses from './pages/BrowseCourses';
 import ProtectedRoute from './components/ProtectedRoute';
 
 
@@ -128,6 +129,13 @@ const AppContent = () => {
           <Route path="/dashboard" element={
             <ProtectedRoute allowedRole="student">
               <Dashboard />
+            </ProtectedRoute>
+          } />
+
+          {/*  */}
+          <Route path="/courses" element={
+            <ProtectedRoute allowedRole="student">
+              <BrowseCourses />
             </ProtectedRoute>
           } />
 

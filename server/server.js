@@ -151,7 +151,7 @@ app.post('/api/chat', protect, async (req, res) => {
         `.trim();
 
         const model = genAI.getGenerativeModel({
-            model: "gemini-3.1-flash-lite-preview",
+            model: "gemini-2.5-flash",
             systemInstruction: systemPrompt
         });
 

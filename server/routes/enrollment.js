@@ -9,49 +9,31 @@ router.post("/", validateToken, async (req, res) => {
     if (req.user.role !== "student") {
       return res.status(403).json({ message: "Only students can enroll in courses." });
     }
-
     const { courseId } = req.body;
 
-    if (!courseId) {
-      return res.status(400).json({ message: "courseId is required." });
-    }
-
+    // Check if course exists
     const course = await Course.findByPk(courseId);
-    if (!course) {
-      return res.status(404).json({ message: "Course not found." });
-    }
+    if (!course) return res.status(404).json({ message: "Course not found." });
 
+    // Check for existing enrollment
     const existingEnrollment = await Enrollment.findOne({
-      where: {
-        userId: req.user.id,
-        courseId,
-      },
+      where: { userId: req.user.id, courseId },
     });
 
     if (existingEnrollment) {
-      return res.status(400).json({ message: "Student already enrolled in this course." });
+      return res.status(400).json({ message: "Enrollment request already exists." });
     }
 
+    // CREATE PENDING ENROLLMENT ONLY
     const enrollment = await Enrollment.create({
       userId: req.user.id,
       courseId,
-      status: "active",
+      status: "pending", //
     });
 
-    await Progress.create({
-      userId: req.user.id,
-      courseId,
-      progressPercent: 0,
-      lastAccessedAt: new Date(),
-    });
-
-    res.status(201).json({
-      message: "Enrollment successful.",
-      enrollment,
-    });
+    res.status(201).json({ message: "Enrollment request submitted.", enrollment });
   } catch (error) {
-    console.error("Enrollment error:", error);
-    res.status(500).json({ message: "Failed to enroll in course." });
+    res.status(500).json({ message: "Failed to enroll." });
   }
 });
 
