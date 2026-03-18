@@ -9,12 +9,18 @@ const Chatbot = () => {
 
     const chatKey = user ? `chatMessages_${user.id}` : "chatMessages";
 
+    // 1. Create a dynamic default message based on the user's name
+    const defaultMessage = useMemo(() => [{ 
+        role: 'ai', 
+        text: user?.fullName 
+            ? `Hi ${user.fullName.split(' ')[0]}! How can I help you with your studies today?` 
+            : "Hi! How can I help you with your studies today?" 
+    }], [user]);
+
     const [isOpen, setIsOpen] = useState(false);
     const [messages, setMessages] = useState(() => {
         const savedMessages = localStorage.getItem(chatKey);
-        return savedMessages
-            ? JSON.parse(savedMessages)
-            : [{ role: 'ai', text: "Hi! How can I help you with your studies today?" }];
+        return savedMessages ? JSON.parse(savedMessages) : defaultMessage;
     });
     const [input, setInput] = useState("");
     const [isTyping, setIsTyping] = useState(false);
@@ -22,7 +28,6 @@ const Chatbot = () => {
     const messagesEndRef = useRef(null);
 
     const handleClearChat = () => {
-        const defaultMessage = [{ role: 'ai', text: "Hi! How can I help you with your studies today?" }];
         setMessages(defaultMessage);
         localStorage.setItem(chatKey, JSON.stringify(defaultMessage));
     };
@@ -33,12 +38,8 @@ const Chatbot = () => {
 
     useEffect(() => {
         const savedMessages = localStorage.getItem(chatKey);
-        setMessages(
-            savedMessages
-                ? JSON.parse(savedMessages)
-                : [{ role: 'ai', text: "Hi! How can I help you with your studies today?" }]
-        );
-    }, [chatKey]);
+        setMessages(savedMessages ? JSON.parse(savedMessages) : defaultMessage);
+    }, [chatKey, defaultMessage]);
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -50,78 +51,32 @@ const Chatbot = () => {
 
     const placeholder = useMemo(() => {
         if (!user) return "Ask anything...";
-
-        if (location.pathname.startsWith("/courses/")) {
-            return "Ask about this course or lesson...";
-        }
-
-        if (location.pathname.startsWith("/course/edit/")) {
-            return "Ask how to improve or organise this course...";
-        }
-
-        if (location.pathname === "/instructor-dashboard") {
-            return "Ask about managing your courses...";
-        }
-
-        if (location.pathname === "/dashboard") {
-            return "Ask about your learning progress...";
-        }
-
-        if (user.role === "instructor") {
-            return "Ask about teaching, lessons, or course design...";
-        }
-
+        if (location.pathname.startsWith("/courses/")) return "Ask about this course or lesson...";
+        if (location.pathname.startsWith("/course/edit/")) return "Ask how to improve or organise this course...";
+        if (location.pathname === "/instructor-dashboard") return "Ask about managing your courses...";
+        if (location.pathname === "/dashboard") return "Ask about your learning progress...";
+        if (user.role === "instructor") return "Ask about teaching, lessons, or course design...";
         return "Ask about your lesson, assignment, or studies...";
     }, [location.pathname, user]);
 
     const suggestions = useMemo(() => {
         if (!user) return [];
-
         if (location.pathname.startsWith("/courses/")) {
-            return [
-                "Summarise this course",
-                "Explain this topic simply",
-                "What should I study next?"
-            ];
+            return ["Summarise this course", "Explain this topic simply", "What should I study next?"];
         }
-
         if (location.pathname.startsWith("/course/edit/")) {
-            return [
-                "How can I improve this course?",
-                "Suggest better topic names",
-                "How should I organise these lessons?"
-            ];
+            return ["How can I improve this course?", "Suggest better topic names", "How should I organise these lessons?"];
         }
-
         if (location.pathname === "/instructor-dashboard") {
-            return [
-                "How can I improve student engagement?",
-                "Suggest a better course structure",
-                "What should I add to my lesson plan?"
-            ];
+            return ["How can I improve student engagement?", "Suggest a better course structure", "What should I add to my lesson plan?"];
         }
-
         if (location.pathname === "/dashboard") {
-            return [
-                "What should I revise today?",
-                "Explain my current topic simply",
-                "Help me plan my study"
-            ];
+            return ["What should I revise today?", "Explain my current topic simply", "Help me plan my study"];
         }
-
         if (user.role === "instructor") {
-            return [
-                "Suggest teaching ideas",
-                "How can I improve my course?",
-                "Help me create lesson content"
-            ];
+            return ["Suggest teaching ideas", "How can I improve my course?", "Help me create lesson content"];
         }
-
-        return [
-            "Summarise my topic",
-            "Explain this simply",
-            "Help me prepare for class"
-        ];
+        return ["Summarise my topic", "Explain this simply", "Help me prepare for class"];
     }, [location.pathname, user]);
 
     const handleSend = async (textToSend = input) => {
@@ -151,34 +106,27 @@ const Chatbot = () => {
                         ? location.pathname.split("/")[2]
                         : location.pathname.startsWith("/course/edit/")
                             ? location.pathname.split("/")[3]
-                            : null
+                            : null,
+                    // 2. Pass the user object to the backend so the AI has context
+                    userContext: user 
                 })
             });
 
             const data = await response.json();
 
             if (response.status === 401 || response.status === 403) {
-                setMessages(prev => [
-                    ...prev,
-                    { role: 'ai', text: "Please log in to use the AI assistant." }
-                ]);
+                setMessages(prev => [...prev, { role: 'ai', text: "Please log in to use the AI assistant." }]);
                 return;
             }
 
             if (response.status === 429) {
-                setMessages(prev => [
-                    ...prev,
-                    { role: 'ai', text: data.reply || "AI usage limit reached. Please try again shortly." }
-                ]);
+                setMessages(prev => [...prev, { role: 'ai', text: data.reply || "AI usage limit reached. Please try again shortly." }]);
                 return;
             }
 
             setMessages(prev => [...prev, { role: 'ai', text: data.reply }]);
         } catch (err) {
-            setMessages(prev => [
-                ...prev,
-                { role: 'ai', text: "Connection error. Is the server running?" }
-            ]);
+            setMessages(prev => [...prev, { role: 'ai', text: "Connection error. Is the server running?" }]);
         } finally {
             setIsTyping(false);
         }

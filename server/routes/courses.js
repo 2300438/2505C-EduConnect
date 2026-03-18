@@ -3,7 +3,7 @@ const yup = require("yup");
 const multer = require("multer");
 const { put } = require("@vercel/blob");
 const upload = multer({ storage: multer.memoryStorage() });
-const { Course, User, Topic, Subtopic, Enrollment } = require("../models");
+const { Course, User, Topic, Subtopic, Enrollment, Progress } = require("../models");
 const validateToken = require("../middleware/validateToken");
 
 const router = express.Router();
@@ -21,7 +21,7 @@ const courseSchema = yup.object({
       subtopics: yup.array().of(
         yup.object({
           title: yup.string().trim().required("Subtopic title is required"),
-          videoUrl: yup.string().trim().url("Must be a valid URL").nullable()
+          fileUrl: yup.string().trim().url("Must be a valid URL").nullable()
         })
       ).nullable()
 
@@ -64,6 +64,7 @@ router.get("/instructor/me", validateToken, async (req, res) => {
 });
 
 // --- GET SINGLE COURSE ---
+// --- GET SINGLE COURSE ---
 router.get("/:id", async (req, res) => {
   try {
     const course = await Course.findByPk(req.params.id, {
@@ -72,7 +73,23 @@ router.get("/:id", async (req, res) => {
           model: User,
           as: "instructor",
           attributes: ["id", "fullName", "email"],
+        },
+        // ADDED THIS: We must tell the database to fetch topics and subtopics!
+        {
+          model: Topic,
+          as: "topics",
+          include: [
+            {
+              model: Subtopic,
+              as: "subtopics",
+            }
+          ]
         }
+      ],
+      // This ensures your topics stay in the correct order when editing
+      order: [
+        [{ model: Topic, as: 'topics' }, 'createdAt', 'ASC'],
+        [{ model: Topic, as: 'topics' }, { model: Subtopic, as: 'subtopics' }, 'createdAt', 'ASC']
       ]
     });
 
@@ -82,6 +99,7 @@ router.get("/:id", async (req, res) => {
 
     res.json(course);
   } catch (error) {
+    console.error("Fetch single course error:", error);
     res.status(500).json({ message: "Failed to fetch course." });
   }
 });
@@ -118,7 +136,7 @@ router.post("/", validateToken, upload.any(), async (req, res) => {
         const match = uploadedFiles.find(f => f.fieldname === `file_${tIndex}_${sIndex}`);
         return {
           title: sub.title,
-          videoUrl: match ? match.url : null
+          fileUrl: match ? match.url : null
         };
       });
 
@@ -227,7 +245,7 @@ router.put("/:id", validateToken, upload.any(), async (req, res) => {
         return {
           id: sub.id || null,
           title: sub.title,
-          videoUrl: match ? match.url : (sub.existingVideoUrl || null),
+          fileUrl: match ? match.url : (sub.existingfileUrl || null),
         };
       });
 
@@ -318,12 +336,12 @@ router.put("/:id", validateToken, upload.any(), async (req, res) => {
           const subtopicRecord = existingSubtopicMap.get(String(subData.id));
           await subtopicRecord.update({
             title: subData.title,
-            videoUrl: subData.videoUrl,
+            fileUrl: subData.fileUrl,
           });
         } else {
           await Subtopic.create({
             title: subData.title,
-            videoUrl: subData.videoUrl,
+            fileUrl: subData.fileUrl,
             topicId: topicRecord.id,
           });
         }

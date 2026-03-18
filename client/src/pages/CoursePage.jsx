@@ -124,28 +124,6 @@ const CoursePage = () => {
   }
 
   return (
-    <div className="dashboard-container">
-      {isInstructor && (
-        <aside className="sidebar">
-          <ul className="sidebar-menu">
-            <li>
-              <button onClick={() => navigate('/instructor-dashboard')}>
-                Instructor Home
-              </button>
-            </li>
-            <li>
-              <button onClick={() => navigate(`/course/edit/${id}`)}>
-                Edit Course
-              </button>
-            </li>
-            <li>
-              <button onClick={() => navigate('/profile')}>
-                Profile
-              </button>
-            </li>
-          </ul>
-        </aside>
-      )}
 
       <main className="main-content">
         <header className="dashboard-header">
@@ -284,10 +262,10 @@ const CoursePage = () => {
                             {subtopic.title || 'Untitled Subtopic'}
                           </div>
 
-                          {subtopic.videoUrl ? (
+                          {subtopic.fileUrl ? (
                             <div style={{ marginTop: '8px' }}>
                               <a
-                                href={subtopic.videoUrl}
+                                href={subtopic.fileUrl}
                                 target="_blank"
                                 rel="noreferrer"
                                 style={{
@@ -314,7 +292,6 @@ const CoursePage = () => {
           )}
         </section>
       </main>
-    </div>
   );
 };
 

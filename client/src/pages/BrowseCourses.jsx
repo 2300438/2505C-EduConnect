@@ -35,36 +35,8 @@ const BrowseCourses = () => {
     };
 
     return (
-        <div className="dashboard-container">
-            {/* Sidebar for easy navigation */}
-            <aside className="sidebar">
-                <ul className="sidebar-menu">
-                    <li>
-                        <button onClick={() => navigate('/dashboard')}>
-                            🏠 Dashboard
-                        </button>
-                    </li>
-                    <li>
-                        {/* Highlights this tab as active */}
-                        <button onClick={() => navigate('/courses')} className="active">
-                            📚 Browse Courses
-                        </button>
-                    </li>
-                    <li>
-                        <Link to="/quizzes">📋 Quizzes</Link>
-                    </li>
-                    <li>
-                        <button onClick={() => navigate('/profile')}>
-                            👤 View Profile
-                        </button>
-                    </li>
-                    <li style={{ marginTop: '40px' }}>
-                        <button onClick={handleLogout}>
-                            🚪 Log Out
-                        </button>
-                    </li>
-                </ul>
-            </aside>
+
+    
 
             <main className="main-content">
                 <header className="dashboard-header">
@@ -118,7 +90,6 @@ const BrowseCourses = () => {
                     )}
                 </section>
             </main>
-        </div>
     );
 };
 

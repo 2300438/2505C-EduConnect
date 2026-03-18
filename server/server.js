@@ -75,6 +75,7 @@ app.post('/api/upload', async (req, res) => {
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 // 1. Add the protector to the route
+// 1. Add the protector to the route
 app.post('/api/chat', protect, async (req, res) => {
     try {
         const { message, history = [], page = "unknown", courseId = null } = req.body;
@@ -83,7 +84,14 @@ app.post('/api/chat', protect, async (req, res) => {
             return res.status(400).json({ reply: "Message is required." });
         }
 
-        const user = await User.findByPk(req.user.id);
+        // --- UPGRADE 1: Fetch the user's Bio and Enrolled Courses ---
+        const user = await User.findByPk(req.user.id, {
+            include: [{
+                model: Course,
+                as: 'enrolledCourses', // Matches the alias in your index.js
+                attributes: ['title']
+            }]
+        });
 
         if (!user) {
             return res.status(404).json({ reply: "User not found in database." });
@@ -97,12 +105,7 @@ app.post('/api/chat', protect, async (req, res) => {
                     {
                         model: Topic,
                         as: "topics",
-                        include: [
-                            {
-                                model: Subtopic,
-                                as: "subtopics"
-                            }
-                        ]
+                        include: [{ model: Subtopic, as: "subtopics" }]
                     }
                 ]
             });
@@ -113,13 +116,12 @@ app.post('/api/chat', protect, async (req, res) => {
                         const subtopicList = (topic.subtopics || [])
                             .map((sub, subIndex) => `${topicIndex + 1}.${subIndex + 1} ${sub.title}`)
                             .join(", ");
-
                         return `Topic ${topicIndex + 1}: ${topic.title}${subtopicList ? ` | Subtopics: ${subtopicList}` : ""}`;
                     })
                     .join("\n");
 
                 courseContext = `
-                Current course:
+                Current course the user is viewing:
                 Title: ${course.title}
                 Description: ${course.description}
                 ${topicSummary}
@@ -127,12 +129,21 @@ app.post('/api/chat', protect, async (req, res) => {
             }
         }
 
+        // --- UPGRADE 2: Inject the Bio and Modules into the System Prompt ---
+        const userBio = user.bio ? `User Bio: ${user.bio}` : "User Bio: None provided.";
+        const enrolledList = user.enrolledCourses?.length > 0 
+            ? `Enrolled Courses: ${user.enrolledCourses.map(c => c.title).join(', ')}` 
+            : "Enrolled Courses: None yet.";
+
         const systemPrompt = `
         You are the EduConnect AI Assistant.
 
-        User name: ${user.fullName}
-        User role: ${user.role}
-        Current page: ${page}
+        User Context:
+        Name: ${user.fullName}
+        Role: ${user.role}
+        ${userBio}
+        ${enrolledList}
+        Current page viewing: ${page}
 
         ${courseContext}
 
@@ -150,12 +161,13 @@ app.post('/api/chat', protect, async (req, res) => {
         - Use plain simple sentences.
         `.trim();
 
+        // Note: Make sure you are using a valid Gemini model string (gemini-1.5-flash is current standard)
         const model = genAI.getGenerativeModel({
-            model: "gemini-2.5-flash",
+            model: "gemini-2.5-flash", 
             systemInstruction: systemPrompt
         });
 
-        const contents = [];
+        let contents = [];
 
         history.slice(-8).forEach((msg) => {
             contents.push({
@@ -171,26 +183,33 @@ app.post('/api/chat', protect, async (req, res) => {
             });
         }
 
+        // --- UPGRADE 3: Gemini Safety Check ---
+        // The Gemini API strictly requires that the 'contents' array STARTS with a 'user' message.
+        // If our slice caught the AI's greeting first, we must remove it so the API doesn't crash with a 400 error.
+        if (contents.length > 0 && contents[0].role === "model") {
+            contents.shift(); 
+        }
+
         const result = await model.generateContent({ contents });
         res.json({ reply: result.response.text() });
 
     } catch (error) {
-    console.error("AI Error:", error);
+        console.error("AI Error:", error);
 
-    if (error.status === 429) {
-        return res.status(429).json({
-            reply: "AI usage limit reached for now. Please wait a moment and try again."
+        if (error.status === 429) {
+            return res.status(429).json({
+                reply: "AI usage limit reached for now. Please wait a moment and try again."
+            });
+        }
+
+        res.status(500).json({
+            reply: "Connection to AI failed."
         });
     }
-
-    res.status(500).json({
-        reply: "Connection to AI failed."
-    });
-}
 });
 
 // --- DB SYNC & SERVER START ---
-sequelize.sync({ alter: true })
+sequelize.sync()
     .then(() => {
         console.log("Database synced successfully.");
         app.listen(PORT, () => {

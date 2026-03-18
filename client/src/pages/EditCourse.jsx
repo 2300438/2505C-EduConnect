@@ -68,7 +68,7 @@ const EditCourse = () => {
             subtopics: (topic.subtopics || []).map((sub) => ({
               id: sub.id,
               title: sub.title || '',
-              existingVideoUrl: sub.videoUrl || '',
+              existingfileUrl: sub.fileUrl || '',
               videoFile: null,
             }))
           }))
@@ -120,7 +120,7 @@ const EditCourse = () => {
             topicData.subtopics.push({
               id: sub.id,
               title: sub.title,
-              existingVideoUrl: sub.existingVideoUrl || '',
+              existingfileUrl: sub.existingfileUrl || '',
             });
           });
         }
@@ -288,7 +288,11 @@ const EditCourse = () => {
                                       startIcon={<VideoCallIcon />}
                                       color={sub.videoFile ? 'success' : 'primary'}
                                     >
-                                      {sub.videoFile ? 'New File Added' : 'Replace Lesson File'}
+                                      {sub.videoFile
+                                        ? 'New File Added'
+                                        : sub.existingVideoUrl
+                                          ? 'Replace Lesson File'
+                                          : 'Upload Lesson File'}
                                       <input
                                         type="file"
                                         hidden
@@ -309,9 +313,9 @@ const EditCourse = () => {
                                     )}
                                   </Box>
 
-                                  {sub.existingVideoUrl && !sub.videoFile && (
+                                  {sub.existingfileUrl && !sub.videoFile && (
                                     <a
-                                      href={sub.existingVideoUrl}
+                                      href={sub.existingfileUrl}
                                       target="_blank"
                                       rel="noreferrer"
                                       style={{ fontSize: '14px', color: '#1976d2', marginLeft: '4px' }}
@@ -328,7 +332,7 @@ const EditCourse = () => {
                                 onClick={() =>
                                   pushSub({
                                     title: '',
-                                    existingVideoUrl: '',
+                                    existingfileUrl: '',
                                     videoFile: null,
                                   })
                                 }

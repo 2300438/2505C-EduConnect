@@ -109,26 +109,6 @@ const InstructorDashboard = () => {
   };
 
   return (
-    <div className="dashboard-container">
-      <aside className="sidebar">
-        <ul className="sidebar-menu">
-          <li>
-            <button onClick={() => navigate('/instructor-dashboard')} className="active">
-              👨‍🏫 Instructor Home
-            </button>
-          </li>
-          <li>
-            <Link to="/manage-courses">📝 Manage Courses</Link>
-          </li>
-          <li>
-            <button onClick={() => navigate('/profile')}>👤 Profile</button>
-          </li>
-          <li style={{ marginTop: '40px' }}>
-            <button onClick={handleLogout}>🚪 Log Out</button>
-          </li>
-        </ul>
-      </aside>
-
       <main className="main-content">
         <header className="dashboard-header">
           <h2>Welcome back, {user?.fullName || 'Professor'}! 🎓</h2>
@@ -265,7 +245,6 @@ const InstructorDashboard = () => {
           )}
         </section>
       </main>
-    </div>
   );
 };
 

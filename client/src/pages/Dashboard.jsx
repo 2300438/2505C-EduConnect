@@ -64,39 +64,8 @@ const Dashboard = () => {
         fetchDashboardCourses();
     }, [user]); // <-- Added 'user' to the dependency array
 
-    const handleLogout = () => {
-        logout();
-        navigate('/');
-    };
 
     return (
-        <div className="dashboard-container">
-            <aside className="sidebar">
-                <ul className="sidebar-menu">
-                    <li>
-                        <button onClick={() => navigate('/dashboard')} className="active">
-                            🏠 Dashboard
-                        </button>
-                    </li>
-                    <li>
-                        <Link to="/courses">📚 My Courses</Link>
-                    </li>
-                    <li>
-                        <Link to="/quizzes">📋 Quizzes</Link>
-                    </li>
-                    <li>
-                        <button onClick={() => navigate('/profile')}>
-                            👤 View Profile
-                        </button>
-                    </li>
-                    <li style={{ marginTop: '40px' }}>
-                        <button onClick={handleLogout}>
-                            🚪 Log Out
-                        </button>
-                    </li>
-                </ul>
-            </aside>
-
             <main className="main-content">
                 <header className="dashboard-header">
                     <h2>Welcome back, {user?.fullName || 'Student'}! 👋</h2>
@@ -117,9 +86,15 @@ const Dashboard = () => {
                     {!loading && !error && courses.length > 0 && (
                         <div className="course-grid">
                             {courses.map((course) => (
-                                <div className="course-card" key={course.id}>
+                                <div 
+                                    className="course-card" 
+                                    key={course.id}
+                                    // 1. Make the whole card clickable
+                                    onClick={() => navigate(`/courses/${course.id}`)}
+                                    style={{ cursor: 'pointer' }}
+                                >
                                     <div className="course-icon">{course.icon}</div>
-                                    <h4>{course.id}: {course.name}</h4>
+                                    <h4>{course.name}</h4>
                                     <p>Next task: {course.task}</p>
                                     <div className="progress-container">
                                         <div
@@ -130,13 +105,19 @@ const Dashboard = () => {
                                     <span className="progress-text">
                                         {course.progress}% Completed
                                     </span>
+                                    
+                                    {/* 2. Add a button to make it visually clear */}
+                                    <div className="card-actions" style={{ marginTop: '15px' }}>
+                                        <button className="btn-primary" style={{ width: '100%' }}>
+                                            Continue Course
+                                        </button>
+                                    </div>
                                 </div>
                             ))}
                         </div>
                     )}
                 </section>
             </main>
-        </div>
     );
 };
 

@@ -11,7 +11,7 @@ const Subtopic = sequelize.define("Subtopic", {
     type: DataTypes.STRING(255),
     allowNull: false,
   },
-  videoUrl: {
+  fileUrl: {
     type: DataTypes.STRING(1000), // Longer length just in case Vercel URLs get long
     allowNull: true, // Optional, in case an instructor wants a text-only lesson later
   },
