@@ -2,7 +2,7 @@ const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
 const { GoogleGenerativeAI } = require("@google/generative-ai");
-
+const mysql = require('mysql2/promise');
 const { handleUpload } = require('@vercel/blob/client');
 
 // --- 1. ADD THESE SPECIFIC IMPORTS ---
@@ -16,6 +16,7 @@ const courseRoutes = require("./routes/courses");
 const dashboardRoutes = require("./routes/dashboard");
 const enrollmentRoutes = require("./routes/enrollment");
 const progressRoutes = require("./routes/progress");
+const extractRoute = require('./routes/extract');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -25,12 +26,13 @@ app.use(cors());
 app.use(express.json());
 
 // --- API ROUTES ---
-app.use("/auth", authRoutes);
+app.use("/api/auth", authRoutes);
 app.use("/api/profile", profileRoutes);
 app.use("/api/courses", courseRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/enrollments", enrollmentRoutes);
 app.use("/api/progress", progressRoutes);
+app.use(extractRoute);
 
 // Test route
 app.get("/", (req, res) => {
@@ -99,7 +101,7 @@ app.post('/api/chat', protect, async (req, res) => {
 
         let courseContext = "";
 
-        if (courseId) {
+       if (courseId) {
             const course = await Course.findByPk(courseId, {
                 include: [
                     {
@@ -120,11 +122,45 @@ app.post('/api/chat', protect, async (req, res) => {
                     })
                     .join("\n");
 
+                // --- NEW: FETCH THE ACTUAL SLIDE/PDF TEXT ---
+                let extractedMaterials = "";
+                try {
+                    const connection = await mysql.createConnection({
+                        host: process.env.DB_HOST,
+                        user: process.env.DB_USER,
+                        password: process.env.DB_PASSWORD,
+                        database: process.env.DB_NAME,
+                    });
+                    
+                    // Only fetch text where the instructor clicked "Add to AI Tutor"
+                    const [contentRows] = await connection.execute(
+                        'SELECT extracted_text FROM course_content WHERE course_id = ? AND is_ai_trained = TRUE',
+                        [courseId]
+                    );
+                    
+                    extractedMaterials = contentRows
+                        .filter(row => row.extracted_text)
+                        .map(row => row.extracted_text)
+                        .join("\n\n--- NEXT DOCUMENT ---\n\n");
+                        
+                    await connection.end();
+                } catch (dbErr) {
+                    console.error("Failed to fetch extracted text:", dbErr);
+                }
+                // --------------------------------------------
+
                 courseContext = `
                 Current course the user is viewing:
                 Title: ${course.title}
                 Description: ${course.description}
+                
+                Course Outline:
                 ${topicSummary}
+
+                ACTUAL COURSE CONTENT FROM SLIDES & PDFs:
+                """
+                ${extractedMaterials || "The instructor hasn't provided specific slide text for this course yet."}
+                """
                 `.trim();
             }
         }

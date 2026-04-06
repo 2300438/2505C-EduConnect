@@ -42,7 +42,7 @@ const Login = () => {
     }),
     onSubmit: async (values, { setSubmitting, setStatus }) => {
       try {
-        const response = await fetch(`${import.meta.env.VITE_API_URL}/auth/login`, {
+        const response = await fetch(`${import.meta.env.VITE_API_URL}/api/auth/login`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -150,6 +150,21 @@ const Login = () => {
                     }}
                   >
                     Register here
+                  </Link>
+                </Typography>
+              </Box>
+              <Box sx={{ mt: 1.5, mb: 1, textAlign: 'center' }}>
+                <Typography variant="body2" color="text.secondary">
+                  Forgot you password?{' '}
+                  <Link
+                    to="/forgot-password"
+                    state={{ role: role }}
+                    style={{
+                      color: role === 'student' ? '#1976d2' : '#2e7d32',
+                      textDecoration: 'none', fontWeight: 'bold'
+                    }}
+                  >
+                    Reset it here
                   </Link>
                 </Typography>
               </Box>

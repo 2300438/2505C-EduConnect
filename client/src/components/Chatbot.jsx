@@ -9,12 +9,16 @@ const Chatbot = () => {
 
     const chatKey = user ? `chatMessages_${user.id}` : "chatMessages";
 
-    // 1. Create a dynamic default message based on the user's name
-    const defaultMessage = useMemo(() => [{ 
-        role: 'ai', 
-        text: user?.fullName 
-            ? `Hi ${user.fullName.split(' ')[0]}! How can I help you with your studies today?` 
-            : "Hi! How can I help you with your studies today?" 
+    // 1. Move Avatar States INSIDE the component
+    const [avatarUrl, setAvatarUrl] = useState(null);
+    const videoRef = useRef(null);
+
+    // 2. Dynamic default message
+    const defaultMessage = useMemo(() => [{
+        role: 'ai',
+        text: user?.fullName
+            ? `Hi ${user.fullName.split(' ')[0]}! I'm your Gemini-powered Tutor. Ready to study?`
+            : "Hi! I'm your AI Tutor. How can I help you today?"
     }], [user]);
 
     const [isOpen, setIsOpen] = useState(false);
@@ -79,8 +83,25 @@ const Chatbot = () => {
         return ["Summarise my topic", "Explain this simply", "Help me prepare for class"];
     }, [location.pathname, user]);
 
+    // 3. Add triggerAvatar function
+    const triggerAvatar = async (text) => {
+        try {
+            const response = await fetch('http://localhost:3001/api/avatar', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ text, userId: user?.id })
+            });
+            const data = await response.json();
+            if (data.videoUrl) {
+                setAvatarUrl(data.videoUrl);
+            }
+        } catch (err) {
+            console.error("Avatar error:", err);
+        }
+    };
+
     const handleSend = async (textToSend = input) => {
-        if (!textToSend.trim()) return;
+        if (!textToSend.trim() || isTyping) return;
 
         const userText = textToSend;
         const updatedMessages = [...messages, { role: 'user', text: userText }];
@@ -91,6 +112,8 @@ const Chatbot = () => {
 
         try {
             const token = localStorage.getItem('token');
+            const pathParts = location.pathname.split("/");
+            const currentSubtopicId = pathParts[4] || new URLSearchParams(location.search).get('subtopic');
 
             const response = await fetch('http://localhost:3001/api/chat', {
                 method: 'POST',
@@ -102,13 +125,15 @@ const Chatbot = () => {
                     message: userText,
                     history: updatedMessages.slice(-8),
                     page: window.location.pathname,
+
+                    subtopicId: currentSubtopicId,
+
                     courseId: location.pathname.startsWith("/courses/")
-                        ? location.pathname.split("/")[2]
+                        ? pathParts[2]
                         : location.pathname.startsWith("/course/edit/")
-                            ? location.pathname.split("/")[3]
+                            ? pathParts[3]
                             : null,
-                    // 2. Pass the user object to the backend so the AI has context
-                    userContext: user 
+                    userContext: user
                 })
             });
 
@@ -125,6 +150,12 @@ const Chatbot = () => {
             }
 
             setMessages(prev => [...prev, { role: 'ai', text: data.reply }]);
+
+            // 4. Trigger the avatar to speak the response
+            if (data.reply) {
+                triggerAvatar(data.reply);
+            }
+
         } catch (err) {
             setMessages(prev => [...prev, { role: 'ai', text: "Connection error. Is the server running?" }]);
         } finally {
@@ -142,6 +173,28 @@ const Chatbot = () => {
                             <button onClick={handleClearChat}>🗑</button>
                             <button onClick={() => setIsOpen(false)}>✖</button>
                         </div>
+                    </div>
+
+                    {/* 5. Avatar Video Display Area */}
+                    <div className="avatar-display" style={{
+                        height: '180px',
+                        background: '#1a1a1a',
+                        display: 'flex',
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        color: '#fff'
+                    }}>
+                        {avatarUrl ? (
+                            <video
+                                ref={videoRef}
+                                src={avatarUrl}
+                                autoPlay
+                                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                onEnded={() => setAvatarUrl(null)} // Clear video when finished
+                            />
+                        ) : (
+                            <div className="avatar-placeholder">AI Tutor is listening...</div>
+                        )}
                     </div>
 
                     <div className="chat-messages">

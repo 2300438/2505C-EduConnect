@@ -1,102 +1,70 @@
-import React from 'react';
-import { useNavigate, Link, useLocation, Outlet } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+import React, { useEffect, useState } from 'react';
+import { Link, useLocation, useParams, Outlet } from 'react-router-dom';
+import api from '../services/api'; // Ensure this points to your axios instance
 import '../styles/dashboard.css';
 
 const SidebarLayout = () => {
-    const navigate = useNavigate();
+    const { id } = useParams(); // 'id' from /courses/:id
     const location = useLocation();
-    const { user, logout } = useAuth();
+    const [topics, setTopics] = useState([]);
 
-    const handleLogout = () => {
-        logout();
-        navigate('/');
-    };
+    // Only show sidebar if we have a course ID in the URL
+    const isViewingCourse = location.pathname.includes('/courses/') && id;
 
-    // Helper function to check if a link is active
-    const isActive = (path) => location.pathname.startsWith(path) ? 'active' : '';
+    useEffect(() => {
+        if (isViewingCourse) {
+            const fetchSidebarTopics = async () => {
+                try {
+                    const response = await api.get(`/courses/${id}/topics`);
+                    setTopics(response.data);
+                } catch (err) {
+                    console.error("Sidebar fetch error:", err);
+                }
+            };
+            fetchSidebarTopics();
+        }
+    }, [id, isViewingCourse]);
 
     return (
-        <div className="dashboard-container" style={{ 
-            display: 'flex', 
-            height: 'calc(100vh - 70px)', // Accounts for Navbar height (adjust 70px if needed)
-            overflow: 'hidden' 
-        }}>
-            {/* SIDEBAR */}
-            <aside className="sidebar" style={{ 
-                width: '250px', 
-                height: '100%', 
-                flexShrink: 0, 
-                backgroundColor: '#2c3e50' 
-            }}>
-                <ul className="sidebar-menu">
-                    {user?.role === 'instructor' ? (
-                        <>
-                            <li>
-                                <Link to="/instructor-dashboard" className={isActive('/instructor-dashboard')}>
-                                    👨‍🏫 Instructor Home
-                                </Link>
-                            </li>
-                            <li>
-                                {/* Changed from /manage-courses to /courses to match your routes */}
-                                <Link to="/courses" className={isActive('/courses')}>
-                                    📝 Manage Courses
-                                </Link>
-                            </li>
-                        </>
-                    ) : (
-                        <>
-                            <li>
-                                <Link to="/dashboard" className={isActive('/dashboard')}>
-                                    🏠 Dashboard
-                                </Link>
-                            </li>
-                            <li>
-                                <Link to="/courses" className={isActive('/courses')}>
-                                    📚 My Courses
-                                </Link>
-                            </li>
-                            <li>
-                                <Link to="/quizzes" className={isActive('/quizzes')}>
-                                    📋 Quizzes
-                                </Link>
-                            </li>
-                        </>
-                    )}
-                    
-                    <li>
-                        <Link to="/profile" className={isActive('/profile')}>
-                            👤 Profile
+        <div className="dashboard-container" style={{ display: 'flex', height: 'calc(100vh - 70px)', overflow: 'hidden' }}>
+            {isViewingCourse && (
+                <aside className="sidebar" style={{ width: '280px', height: '100%', overflowY: 'auto', backgroundColor: '#2c3e50', color: 'white' }}>
+                    <div style={{ padding: '20px', borderBottom: '1px solid #34495e' }}>
+                        <Link to={`/courses/${id}`} style={{ color: 'white', textDecoration: 'none' }}>
+                            <h3 style={{ fontSize: '1rem' }}>📌 Course Overview</h3>
                         </Link>
-                    </li>
-                    <li style={{ marginTop: '40px' }}>
-                        <button 
-                            onClick={handleLogout} 
-                            style={{ 
-                                width: '100%', 
-                                textAlign: 'left', 
-                                background: 'none', 
-                                border: 'none', 
-                                color: 'white', 
-                                cursor: 'pointer',
-                                padding: '10px 20px',
-                                fontSize: 'inherit'
-                            }}
-                        >
-                            🚪 Log Out
-                        </button>
-                    </li>
-                </ul>
-            </aside>
+                    </div>
+                    <ul className="sidebar-menu" style={{ listStyle: 'none', padding: 0 }}>
+                        {topics.map((topic, tIdx) => (
+                            <li key={topic.id} style={{ padding: '10px 20px', borderBottom: '1px solid #34495e' }}>
+                                <div style={{ fontSize: '0.85rem', color: '#95a5a6', marginBottom: '5px' }}>
+                                    TOPIC {tIdx + 1}: {topic.title}
+                                </div>
+                                {topic.subtopics?.map((sub, sIdx) => (
+                                    <Link 
+                                        key={sub.id}
+                                        // Navigate to a specific subtopic route
+                                        to={`/courses/${id}/subtopic/${sub.id}`}
+                                        className={location.pathname.includes(sub.id) ? 'active' : ''}
+                                        style={{ 
+                                            display: 'block', 
+                                            padding: '8px 10px', 
+                                            fontSize: '0.9rem', 
+                                            color: '#ecf0f1', 
+                                            textDecoration: 'none' 
+                                        }}
+                                    >
+                                        📄 {sub.title}
+                                    </Link>
+                                ))}
+                            </li>
+                        ))}
+                    </ul>
+                </aside>
+            )}
 
-            {/* MAIN CONTENT AREA: This is what allows the pages to scroll */}
-            <main className="main-content" style={{ 
-                flex: 1, 
-                overflowY: 'auto', // CRITICAL: This enables scrolling
-                padding: '30px', 
-                backgroundColor: '#f4f7f6' 
-            }}>
-                <Outlet />
+            <main className="main-content" style={{ flex: 1, overflowY: 'auto', padding: '30px', backgroundColor: '#f4f7f6' }}>
+                <Outlet context={{ topics }} /> 
             </main>
         </div>
     );

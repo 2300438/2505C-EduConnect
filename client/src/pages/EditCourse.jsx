@@ -18,6 +18,7 @@ import {
 import DeleteIcon from '@mui/icons-material/Delete';
 import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
 import VideoCallIcon from '@mui/icons-material/VideoCall';
+import SmartToyIcon from '@mui/icons-material/SmartToy'; // Added icon for AI button
 
 const EditCourse = () => {
   const navigate = useNavigate();
@@ -27,6 +28,11 @@ const EditCourse = () => {
   const [pageLoading, setPageLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
+  
+  // State to track which file is currently being processed by the AI
+  const [trainingId, setTrainingId] = useState(null); 
+  // State for AI training messages
+  const [aiMessage, setAiMessage] = useState(null);
 
   const validationSchema = Yup.object({
     title: Yup.string().required('Course title is required'),
@@ -36,14 +42,13 @@ const EditCourse = () => {
     topics: Yup.array().of(
       Yup.object({
         title: Yup.string().required('Topic title required'),
-        // Subtopics are now optional, matching NewCourse.jsx
         subtopics: Yup.array().of(
           Yup.object({
             title: Yup.string().required('Lesson title required'),
           })
         ).nullable()
       })
-    ).nullable() // Topics array is also flexible now
+    ).nullable()
   });
 
   useEffect(() => {
@@ -69,6 +74,8 @@ const EditCourse = () => {
               id: sub.id,
               title: sub.title || '',
               existingfileUrl: sub.fileUrl || '',
+              // Add a field to track if this specific subtopic has been trained
+              is_ai_trained: sub.is_ai_trained || false, 
               videoFile: null,
             }))
           }))
@@ -83,6 +90,49 @@ const EditCourse = () => {
 
     fetchCourse();
   }, [id]);
+
+  // Handle the manual AI Training trigger
+  const handleTrainAI = async (subtopicId, fileUrl, setFieldValue, tIndex, sIndex) => {
+    if (!fileUrl) {
+      setAiMessage({ type: 'error', text: 'You must save the uploaded file before training the AI.' });
+      return;
+    }
+
+    setTrainingId(subtopicId);
+    setAiMessage(null);
+
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/courses/extract`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ 
+          contentId: subtopicId, 
+          blobUrl: fileUrl, 
+          // We pass a generic type here, your backend should detect if it's pdf/pptx based on URL or headers
+          contentType: fileUrl.split('.').pop() 
+        })
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        // Update the Formik state so the button changes to "Trained"
+        setFieldValue(`topics.${tIndex}.subtopics.${sIndex}.is_ai_trained`, true);
+        setAiMessage({ type: 'success', text: `AI Tutor has successfully learned from the lesson file!` });
+      } else {
+        setAiMessage({ type: 'error', text: "Failed to train AI: " + data.message });
+      }
+    } catch (error) {
+      console.error("Training error:", error);
+      setAiMessage({ type: 'error', text: "Connection error while training the AI." });
+    } finally {
+      setTrainingId(null);
+    }
+  };
 
   const handleSubmit = async (values) => {
     setSaving(true);
@@ -110,7 +160,6 @@ const EditCourse = () => {
           subtopics: [],
         };
 
-        // Safety check: ensure subtopics exist before looping
         if (topic.subtopics) {
           topic.subtopics.forEach((sub, sIndex) => {
             if (sub.videoFile) {
@@ -146,8 +195,6 @@ const EditCourse = () => {
       } catch {
         data = { message: text };
       }
-
-      console.log('Edit course response:', data);
 
       if (response.ok) {
         navigate(`/courses/${id}`);
@@ -186,6 +233,11 @@ const EditCourse = () => {
         </Typography>
 
         {error && <Alert severity="error" sx={{ mb: 3 }}>{error}</Alert>}
+        {aiMessage && (
+          <Alert severity={aiMessage.type} sx={{ mb: 3 }} onClose={() => setAiMessage(null)}>
+            {aiMessage.text}
+          </Alert>
+        )}
 
         <Formik
           initialValues={initialValues}
@@ -262,16 +314,16 @@ const EditCourse = () => {
                               {(topic.subtopics || []).map((sub, sIndex) => (
                                 <Box
                                   key={sub.id || sIndex}
-                                  sx={{ display: 'flex', flexDirection: 'column', gap: 1, mb: 3 }}
+                                  sx={{ display: 'flex', flexDirection: 'column', gap: 1, mb: 4, p: 2, border: '1px solid #e0e0e0', borderRadius: 1, bgcolor: 'white' }}
                                 >
-                                  <Box sx={{ display: 'flex', gap: 2, alignItems: 'start' }}>
+                                  <Box sx={{ display: 'flex', gap: 2, alignItems: 'start', flexWrap: 'wrap' }}>
                                     <TextField
                                       label="Subtopic Title"
                                       name={`topics.${tIndex}.subtopics.${sIndex}.title`}
                                       value={sub.title}
                                       onChange={handleChange}
                                       size="small"
-                                      sx={{ flex: 1, bgcolor: 'white' }}
+                                      sx={{ flex: 1, minWidth: '200px' }}
                                       error={
                                         touched.topics?.[tIndex]?.subtopics?.[sIndex]?.title &&
                                         Boolean(errors.topics?.[tIndex]?.subtopics?.[sIndex]?.title)
@@ -287,12 +339,13 @@ const EditCourse = () => {
                                       component="label"
                                       startIcon={<VideoCallIcon />}
                                       color={sub.videoFile ? 'success' : 'primary'}
+                                      sx={{ whiteSpace: 'nowrap' }}
                                     >
                                       {sub.videoFile
-                                        ? 'New File Added'
-                                        : sub.existingVideoUrl
-                                          ? 'Replace Lesson File'
-                                          : 'Upload Lesson File'}
+                                        ? 'New File Selected'
+                                        : sub.existingfileUrl
+                                          ? 'Replace File'
+                                          : 'Upload File'}
                                       <input
                                         type="file"
                                         hidden
@@ -306,22 +359,43 @@ const EditCourse = () => {
                                       />
                                     </Button>
 
+                                    {/* --- NEW: THE TRAIN AI BUTTON --- */}
+                                    {sub.existingfileUrl && (
+                                      <Button
+                                        variant="contained"
+                                        size="small"
+                                        startIcon={<SmartToyIcon />}
+                                        color={sub.is_ai_trained ? "success" : "secondary"}
+                                        disabled={sub.is_ai_trained || trainingId === sub.id}
+                                        onClick={() => handleTrainAI(sub.id, sub.existingfileUrl, setFieldValue, tIndex, sIndex)}
+                                        sx={{ whiteSpace: 'nowrap' }}
+                                      >
+                                        {trainingId === sub.id 
+                                          ? "AI is Reading..." 
+                                          : sub.is_ai_trained 
+                                            ? "AI Trained" 
+                                            : "Add to AI Tutor"}
+                                      </Button>
+                                    )}
+
                                     {topic.subtopics.length > 1 && (
-                                      <IconButton onClick={() => removeSub(sIndex)} size="small">
+                                      <IconButton onClick={() => removeSub(sIndex)} size="small" color="error">
                                         <DeleteIcon />
                                       </IconButton>
                                     )}
                                   </Box>
 
                                   {sub.existingfileUrl && !sub.videoFile && (
-                                    <a
-                                      href={sub.existingfileUrl}
-                                      target="_blank"
-                                      rel="noreferrer"
-                                      style={{ fontSize: '14px', color: '#1976d2', marginLeft: '4px' }}
-                                    >
-                                      View current file
-                                    </a>
+                                    <Box sx={{ mt: 1 }}>
+                                      <a
+                                        href={sub.existingfileUrl}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        style={{ fontSize: '14px', color: '#1976d2' }}
+                                      >
+                                        View currently uploaded file
+                                      </a>
+                                    </Box>
                                   )}
                                 </Box>
                               ))}
@@ -334,6 +408,7 @@ const EditCourse = () => {
                                     title: '',
                                     existingfileUrl: '',
                                     videoFile: null,
+                                    is_ai_trained: false
                                   })
                                 }
                               >
@@ -352,7 +427,7 @@ const EditCourse = () => {
                       onClick={() =>
                         pushTopic({
                           title: '',
-                          subtopics: [], // Empty array instead of a blank subtopic object!
+                          subtopics: [],
                         })
                       }
                       sx={{ py: 1.5, borderStyle: 'dashed' }}

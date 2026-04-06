@@ -19,6 +19,14 @@ const Subtopic = sequelize.define("Subtopic", {
     type: DataTypes.INTEGER,
     allowNull: false, // Every subtopic MUST belong to a topic
   },
+  is_ai_trained: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false
+  },
+  extracted_text: {
+    type: DataTypes.TEXT('long'), // Must be 'long' for large PDFs
+    allowNull: true
+  }
 }, {
   tableName: "subtopics",
   timestamps: true,

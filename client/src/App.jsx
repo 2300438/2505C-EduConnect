@@ -14,6 +14,8 @@ import CoursePage from './pages/CoursePage';
 import EditCourse from './pages/EditCourse';
 import BrowseCourses from './pages/BrowseCourses';
 import ProtectedRoute from './components/ProtectedRoute';
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
 
 // Components
 import Chatbot from './components/Chatbot';
@@ -123,6 +125,8 @@ const AppContent = () => {
           <Route path="/" element={<Home />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password/:token" element={<ResetPassword />} />
 
           {/* ========================================== */}
           {/* PROTECTED ROUTES (With Sidebar)            */}
