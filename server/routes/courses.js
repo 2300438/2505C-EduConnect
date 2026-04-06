@@ -3,7 +3,7 @@ const yup = require("yup");
 const multer = require("multer");
 const { put } = require("@vercel/blob");
 const upload = multer({ storage: multer.memoryStorage() });
-const { Course, User, Topic, Subtopic, Enrollment, Progress } = require("../models");
+const { Course, User, Topic, Subtopic, Enrollment, Progress, Quiz, Question, Discussion } = require("../models");
 const validateToken = require("../middleware/validateToken");
 
 const router = express.Router();
@@ -64,7 +64,6 @@ router.get("/instructor/me", validateToken, async (req, res) => {
 });
 
 // --- GET SINGLE COURSE ---
-// --- GET SINGLE COURSE ---
 router.get("/:id", async (req, res) => {
   try {
     const course = await Course.findByPk(req.params.id, {
@@ -74,22 +73,26 @@ router.get("/:id", async (req, res) => {
           as: "instructor",
           attributes: ["id", "fullName", "email"],
         },
-        // ADDED THIS: We must tell the database to fetch topics and subtopics!
         {
           model: Topic,
           as: "topics",
-          include: [
-            {
-              model: Subtopic,
-              as: "subtopics",
-            }
-          ]
+          include: [{ model: Subtopic, as: "subtopics" }]
+        },
+        // NEW: Include Quizzes and their Questions
+        {
+          model: Quiz,
+          as: "quizzes",
+          include: [{ model: Question, as: "questions" }]
+        },
+        // NEW: Include Discussions
+        {
+          model: Discussion,
+          as: "discussions"
         }
       ],
-      // This ensures your topics stay in the correct order when editing
       order: [
         [{ model: Topic, as: 'topics' }, 'createdAt', 'ASC'],
-        [{ model: Topic, as: 'topics' }, { model: Subtopic, as: 'subtopics' }, 'createdAt', 'ASC']
+        [{ model: Quiz, as: 'quizzes' }, 'createdAt', 'ASC']
       ]
     });
 
@@ -103,7 +106,6 @@ router.get("/:id", async (req, res) => {
     res.status(500).json({ message: "Failed to fetch course." });
   }
 });
-
 // --- POST: CREATE NEW COURSE ---
 router.post("/", validateToken, upload.any(), async (req, res) => {
   try {
@@ -572,6 +574,48 @@ router.get("/:courseId/topics", validateToken, async (req, res) => {
   }
 });
 
+// STUDENT/INSTRUCTOR: GET SINGLE SUBTOPIC
+router.get("/:courseId/subtopics/:subtopicId", validateToken, async (req, res) => {
+  try {
+    const courseId = parseInt(req.params.courseId, 10);
+    const subtopicId = parseInt(req.params.subtopicId, 10);
+    const userId = req.user.id;
+
+    // 1. Find the course to check permissions
+    const course = await Course.findByPk(courseId);
+    if (!course) {
+      return res.status(404).json({ message: "Course not found." });
+    }
+
+    // 2. Check if user is instructor or an approved student
+    const isInstructor = course.instructorId === userId;
+    
+    if (!isInstructor) {
+      const enrollment = await Enrollment.findOne({
+        where: { userId, courseId, status: "approved" },
+      });
+
+      if (!enrollment) {
+        return res.status(403).json({ message: "Access denied. You are not approved for this course." });
+      }
+    }
+
+    // 3. Fetch the specific subtopic
+    const subtopic = await Subtopic.findByPk(subtopicId);
+
+    if (!subtopic) {
+      return res.status(404).json({ message: "Subtopic not found." });
+    }
+
+    // 4. Send the data (which includes the fileUrl) back to the frontend
+    res.json(subtopic);
+
+  } catch (error) {
+    console.error("Get single subtopic error:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
 // STUDENT: GET MY ENROLLMENT STATUS FOR A COURSE
 router.get("/:courseId/my-enrollment", validateToken, async (req, res) => {
   try {
@@ -593,6 +637,183 @@ router.get("/:courseId/my-enrollment", validateToken, async (req, res) => {
   } catch (error) {
     console.error("Get my enrollment error:", error);
     res.status(500).json({ message: "Server error" });
+  }
+});
+
+// --- POST: CREATE QUIZ WITH QUESTIONS ---
+router.post("/:courseId/quizzes", validateToken, async (req, res) => {
+  try {
+    const { courseId } = req.params;
+    const { title, description, requiresPassword, password, questions } = req.body;
+
+    // 1. Verify Course & Ownership
+    const course = await Course.findByPk(courseId);
+    if (!course) return res.status(404).json({ message: "Course not found." });
+    if (course.instructorId !== req.user.id) {
+      return res.status(403).json({ message: "Not authorized to add quizzes to this course." });
+    }
+
+    // 2. Create the Quiz
+    const quiz = await Quiz.create({
+      title,
+      description,
+      requiresPassword,
+      password: requiresPassword ? password : null,
+      courseId
+    });
+
+    // 3. Create the Questions (if any were provided)
+    if (questions && questions.length > 0) {
+      const questionsData = questions.map(q => ({
+        text: q.text,
+        type: q.type,
+        options: q.type === 'MCQ' ? q.options : null,
+        correctAnswer: q.correctAnswer,
+        quizId: quiz.id
+      }));
+
+      await Question.bulkCreate(questionsData);
+    }
+
+    res.status(201).json({ message: "Quiz created successfully!", quiz });
+  } catch (error) {
+    console.error("Quiz Creation Error:", error);
+    res.status(500).json({ message: "Failed to create quiz." });
+  }
+});
+// 1. STUDENT GET QUIZ (Hides answers and password)
+router.get("/:courseId/quizzes/:quizId", validateToken, async (req, res) => {
+  try {
+    const quiz = await Quiz.findOne({
+      where: { id: req.params.quizId, courseId: req.params.courseId },
+      include: [{
+        model: Question,
+        as: "questions",
+        // CRITICAL: We DO NOT send the correct answer to the frontend!
+        attributes: ['id', 'text', 'type', 'options'] 
+      }]
+    });
+
+    if (!quiz) return res.status(404).json({ message: "Quiz not found" });
+
+    // Send the quiz data, but strip the actual password string for security
+    res.json({
+      id: quiz.id,
+      title: quiz.title,
+      description: quiz.description,
+      requiresPassword: quiz.requiresPassword,
+      questions: quiz.questions
+    });
+  } catch (error) {
+    res.status(500).json({ message: "Failed to fetch quiz." });
+  }
+});
+
+// 2. VERIFY PASSWORD
+router.post("/:courseId/quizzes/:quizId/verify-password", validateToken, async (req, res) => {
+  try {
+    const { password } = req.body;
+    const quiz = await Quiz.findByPk(req.params.quizId);
+
+    if (!quiz) return res.status(404).json({ message: "Quiz not found" });
+    if (!quiz.requiresPassword) return res.status(200).json({ success: true });
+
+    // In a real app, you'd use bcrypt here. For now, strict equality based on your DB.
+    if (quiz.password === password) {
+      return res.status(200).json({ success: true });
+    } else {
+      return res.status(401).json({ message: "Incorrect password" });
+    }
+  } catch (error) {
+    res.status(500).json({ message: "Verification failed." });
+  }
+});
+
+// 3. GRADE SUBMISSION
+router.post("/:courseId/quizzes/:quizId/submit", validateToken, async (req, res) => {
+  try {
+    const { answers } = req.body; // Looks like { "questionId_1": "0", "questionId_2": "apple" }
+    
+    // Fetch questions WITH the correct answers so we can grade them
+    const questions = await Question.findAll({ where: { quizId: req.params.quizId } });
+
+    let score = 0;
+    let autoGradableCount = 0;
+    let pendingManualGrade = false;
+
+    questions.forEach((q) => {
+      const studentAnswer = answers[q.id];
+
+      if (q.type === 'MCQ') {
+        autoGradableCount++;
+        if (studentAnswer === q.correctAnswer) score++;
+      } 
+      else if (q.type === 'SHORT') {
+        autoGradableCount++;
+        // Case insensitive grading, trimmed whitespace
+        if (studentAnswer?.trim().toLowerCase() === q.correctAnswer?.trim().toLowerCase()) {
+          score++;
+        }
+      } 
+      else if (q.type === 'LONG') {
+        pendingManualGrade = true; // Cannot auto-grade essays
+      }
+    });
+
+    // NOTE: In a full production app, you would save this score to a 'QuizSubmissions' table here!
+
+    res.json({
+      score,
+      total: autoGradableCount,
+      message: pendingManualGrade ? "Your short/multiple choice answers have been graded. Essays are pending review by your instructor." : "Quiz graded successfully!"
+    });
+  } catch (error) {
+    res.status(500).json({ message: "Failed to grade submission." });
+  }
+});
+
+// 1. INSTRUCTOR: GET SUBMISSIONS NEEDING GRADING
+router.get("/instructor/pending-grading", validateToken, async (req, res) => {
+  try {
+    const submissions = await QuizSubmission.findAll({
+      where: { 
+        needsManualGrading: true, 
+        isGraded: false 
+      },
+      include: [
+        { model: User, as: "user", attributes: ["id", "fullName", "email"] },
+        { 
+          model: Quiz, 
+          as: "quiz",
+          // Verify this instructor owns the course the quiz belongs to
+          include: [{ model: Course, as: "course", where: { instructorId: req.user.id } }, { model: Question, as: "questions" }]
+        }
+      ],
+      order: [["createdAt", "ASC"]]
+    });
+    res.json(submissions);
+  } catch (error) {
+    res.status(500).json({ message: "Failed to fetch pending grades." });
+  }
+});
+
+// 2. INSTRUCTOR: SUBMIT FINAL GRADE
+router.put("/instructor/grade-submission/:id", validateToken, async (req, res) => {
+  try {
+    const { manualScore } = req.body;
+    const submission = await QuizSubmission.findByPk(req.params.id);
+
+    if (!submission) return res.status(404).json({ message: "Submission not found." });
+
+    // Update the submission
+    submission.manualScore = manualScore;
+    submission.isGraded = true;
+    submission.needsManualGrading = false;
+    await submission.save();
+
+    res.json({ message: "Grade saved successfully!", submission });
+  } catch (error) {
+    res.status(500).json({ message: "Failed to save grade." });
   }
 });
 

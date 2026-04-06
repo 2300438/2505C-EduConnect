@@ -5,6 +5,10 @@ const Enrollment = require("./Enrollment");
 const Progress = require("./Progress");
 const Topic = require("./Topic");
 const Subtopic = require("./Subtopic");
+const Quiz = require('./Quiz');
+const Question = require('./Question');
+const Discussion = require('./Discussion');
+const QuizSubmission = require('./QuizSubmission');
 
 User.hasMany(Course, { foreignKey: "instructorId", as: "coursesTaught" });
 Course.belongsTo(User, { foreignKey: "instructorId", as: "instructor" });
@@ -41,6 +45,19 @@ Topic.belongsTo(Course, { foreignKey: 'courseId', as: 'course' });
 Topic.hasMany(Subtopic, { foreignKey: 'topicId', as: 'subtopics', onDelete: 'CASCADE' });
 Subtopic.belongsTo(Topic, { foreignKey: 'topicId', as: 'topic' });
 
+Course.hasMany(Quiz, { as: "quizzes", foreignKey: "courseId", onDelete: "CASCADE" });
+Quiz.belongsTo(Course, { as: "course", foreignKey: "courseId" });
+
+Quiz.hasMany(Question, { as: "questions", foreignKey: "quizId", onDelete: "CASCADE" });
+Question.belongsTo(Quiz, { as: "quiz", foreignKey: "quizId" });
+
+Course.hasMany(Discussion, { as: "discussions", foreignKey: "courseId", onDelete: "CASCADE" });
+Discussion.belongsTo(Course, { as: "course", foreignKey: "courseId" });
+
+Quiz.hasMany(QuizSubmission);
+User.hasMany(QuizSubmission);
+
+
 module.exports = {
   sequelize,
   User,
@@ -49,4 +66,7 @@ module.exports = {
   Progress,
   Topic,
   Subtopic,
+  Quiz,
+  Question,
+  Discussion
 };

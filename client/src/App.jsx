@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, useNavigate, useLocation, Navigate } from 'react-router-dom';
 import { useAuth } from './context/AuthContext';
 
@@ -11,26 +11,45 @@ import NewCourse from './pages/New-Course';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import CoursePage from './pages/CoursePage';
+import SubtopicPage from './pages/SubtopicPage';
 import EditCourse from './pages/EditCourse';
 import BrowseCourses from './pages/BrowseCourses';
 import ProtectedRoute from './components/ProtectedRoute';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
+import CreateQuiz from './pages/CreateQuiz';
+import TakeQuiz from './pages/TakeQuiz';
 
 // Components
 import Chatbot from './components/Chatbot';
-import SidebarLayout from './components/SidebarLayout'; // <-- 1. Import your new layout
+import SidebarLayout from './components/SidebarLayout';
 
-// --- 2. THE NAVBAR COMPONENT ---
+// --- THE NAVBAR COMPONENT ---
 const Navbar = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, logout, isAuthenticated } = useAuth();
 
+  // State and ref for the dropdown
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const dropdownRef = useRef(null);
+
   const handleLogout = () => {
+    setDropdownOpen(false); // Close dropdown on logout
     logout();
     navigate('/');
   };
+
+  // Close dropdown if user clicks outside of it
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const isHomepage = location.pathname === '/';
 
@@ -43,7 +62,7 @@ const Navbar = () => {
       background: '#fff',
       boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
       position: 'relative',
-      zIndex: 10 // Keeps navbar above sidebar
+      zIndex: 50 // Increased z-index to ensure dropdown renders over everything
     }}>
 
       {/* 1. Left Section (Logo) */}
@@ -53,55 +72,106 @@ const Navbar = () => {
         </Link>
       </div>
 
-      {/* 2. Center Section (Home Link) */}
+      {/* 2. Center Section (Home & Dashboard Links) */}
       <div className="nav-center" style={{ textAlign: 'center' }}>
         <ul style={{ display: 'inline-flex', listStyle: 'none', gap: '20px', margin: 0, padding: 0 }}>
           <li><Link to="/" style={{ textDecoration: 'none', color: '#333' }}>Home</Link></li>
-          {/* Only show Dashboard/Profile if logged in */}
+          {/* Only show Dashboard if logged in (Profile moved to dropdown) */}
           {isAuthenticated && user && (
-            <>
-              <li>
-                <Link
-                  to={user.role === 'instructor' ? "/instructor-dashboard" : "/dashboard"}
-                  style={{ textDecoration: 'none', color: '#333' }}
-                >
-                  Dashboard
-                </Link>
-              </li>
-              <li><Link to="/profile" style={{ textDecoration: 'none', color: '#333' }}>Profile</Link></li>
-            </>
+            <li>
+              <Link
+                to={user.role === 'instructor' ? "/instructor-dashboard" : "/dashboard"}
+                style={{ textDecoration: 'none', color: '#333' }}
+              >
+                My Courses
+              </Link>
+            </li>
           )}
         </ul>
       </div>
 
-      {/* 3. Right Section (Name & Logout) */}
-      <div className="nav-right" style={{ textAlign: 'right' }}>
+      {/* 3. Right Section (Dropdown & Login) */}
+      <div className="nav-right" style={{ display: 'flex', justifyContent: 'flex-end' }}>
         {isAuthenticated && user ? (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '15px', justifyContent: 'flex-end' }}>
-            <span style={{ fontWeight: '500', color: '#333' }}>
-              Hello, {user.fullName || user.name}! 
-            </span>
-            <button 
-              onClick={handleLogout} 
-              style={{ 
-                backgroundColor: '#e74c3c', 
-                color: '#fff', 
-                border: 'none', 
-                padding: '0.4rem 0.8rem', 
+          // USER PROFILE DROPDOWN
+          <div style={{ position: 'relative' }} ref={dropdownRef}>
+            <button
+              onClick={() => setDropdownOpen(!dropdownOpen)}
+              style={{
+                background: 'none',
+                border: 'none',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
                 cursor: 'pointer',
-                borderRadius: '4px'
+                padding: '5px 10px',
+                borderRadius: '6px',
+                transition: 'background 0.2s'
               }}
+              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f5f6fa'}
+              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
             >
-              Logout
+              <span style={{ fontWeight: '500', color: '#333', fontSize: '1rem' }}>
+                {user.fullName || user.name}
+              </span>
+              <span style={{ fontSize: '0.8rem', color: '#7f8c8d' }}>
+                {dropdownOpen ? '▲' : '▼'}
+              </span>
             </button>
+
+            {/* DROPDOWN MENU */}
+            {dropdownOpen && (
+              <div style={{
+                position: 'absolute',
+                top: '100%',
+                right: 0,
+                marginTop: '10px',
+                backgroundColor: '#fff',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                borderRadius: '8px',
+                width: '160px',
+                overflow: 'hidden',
+                zIndex: 100
+              }}>
+                <Link
+                  to="/profile"
+                  onClick={() => setDropdownOpen(false)}
+                  style={{
+                    display: 'block',
+                    padding: '12px 16px',
+                    color: '#2c3e50',
+                    textDecoration: 'none',
+                    borderBottom: '1px solid #ecf0f1',
+                    fontSize: '0.95rem'
+                  }}
+                >
+                  👤 Profile
+                </Link>
+                <button
+                  onClick={handleLogout}
+                  style={{
+                    display: 'block',
+                    width: '100%',
+                    textAlign: 'left',
+                    padding: '12px 16px',
+                    backgroundColor: 'transparent',
+                    border: 'none',
+                    color: '#e74c3c',
+                    cursor: 'pointer',
+                    fontSize: '0.95rem',
+                    fontWeight: '500'
+                  }}
+                >
+                  🚪 Logout
+                </button>
+              </div>
+            )}
           </div>
         ) : (
           isHomepage && (
-            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
-              <button onClick={() => navigate('/login')} style={{ backgroundColor: '#1976d2', color: '#fff', border: 'none', padding: '0.5rem 1rem', cursor: 'pointer', borderRadius: '4px' }}>
-                Login
-              </button>
-            </div>
+            <button onClick={() => navigate('/login')} style={{ backgroundColor: '#1976d2', color: '#fff', border: 'none', padding: '0.5rem 1rem', cursor: 'pointer', borderRadius: '4px' }}>
+              Login
+            </button>
           )
         )}
       </div>
@@ -132,7 +202,7 @@ const AppContent = () => {
           {/* PROTECTED ROUTES (With Sidebar)            */}
           {/* ========================================== */}
           <Route element={<SidebarLayout />}>
-            
+
             {/* Student Routes */}
             <Route path="/dashboard" element={
               <ProtectedRoute allowedRole="student"><Dashboard /></ProtectedRoute>
@@ -151,6 +221,9 @@ const AppContent = () => {
             <Route path="/course/edit/:id" element={
               <ProtectedRoute allowedRole="instructor"><EditCourse /></ProtectedRoute>
             } />
+            <Route path="/course/:id/quizzes/new" element={
+              <ProtectedRoute allowedRole="instructor"><CreateQuiz /></ProtectedRoute>
+            } />
 
             {/* General Protected Routes */}
             <Route path="/courses/:id" element={
@@ -159,7 +232,12 @@ const AppContent = () => {
             <Route path="/profile" element={
               <ProtectedRoute><Profile /></ProtectedRoute>
             } />
-            
+            <Route path="/courses/:id/subtopic/:subtopicId" element={
+              <ProtectedRoute><SubtopicPage /></ProtectedRoute>
+            } />
+            <Route path="/courses/:id/quiz/:quizId" element={
+              <ProtectedRoute><TakeQuiz /></ProtectedRoute>
+            } />
           </Route>
 
           {/* Fallback */}
@@ -172,7 +250,7 @@ const AppContent = () => {
   );
 };
 
-// --- 3. MAIN APP ---
+// --- MAIN APP ---
 function App() {
   return (
     <Router>

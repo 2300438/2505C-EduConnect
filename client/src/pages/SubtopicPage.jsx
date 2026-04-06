@@ -2,73 +2,91 @@ import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import api from '../services/api';
 
-// Core viewer items
+// PDF Viewer Imports
 import { Worker, Viewer } from '@react-pdf-viewer/core';
-// Default layout plugin (includes toolbar, sidebar, etc.)
 import { defaultLayoutPlugin } from '@react-pdf-viewer/default-layout';
 
-// Import necessary styles
+// Essential Styles
 import '@react-pdf-viewer/core/lib/styles/index.css';
 import '@react-pdf-viewer/default-layout/lib/styles/index.css';
 
 const SubtopicPage = () => {
     const { id, subtopicId } = useParams();
     const [subtopic, setSubtopic] = useState(null);
+    const [pdfObjectUrl, setPdfObjectUrl] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState('');
 
-    // Initialize the plugin
     const defaultLayoutPluginInstance = defaultLayoutPlugin();
 
     useEffect(() => {
-        const fetchSubtopic = async () => {
+        const fetchSubtopicAndFile = async () => {
             try {
                 setLoading(true);
+                setError('');
+
+                // 1. Get subtopic data (which includes your Vercel Blob URL)
                 const res = await api.get(`/courses/${id}/subtopics/${subtopicId}`);
-                setSubtopic(res.data);
+                const data = res.data;
+                setSubtopic(data);
+
+                // 2. Fetch the actual PDF file from Vercel Blob
+                // Converting to a local Object URL prevents CORS "Canvas" errors
+                if (data.fileUrl && data.fileUrl.toLowerCase().endsWith('.pdf')) {
+                    try {
+                        const fileResponse = await fetch(data.fileUrl, {
+                            mode: 'cors', // Ensure CORS mode is explicit
+                        });
+
+                        if (!fileResponse.ok) throw new Error("Network response was not ok");
+
+                        const fileBlob = await fileResponse.blob();
+                        const localUrl = URL.createObjectURL(fileBlob);
+                        setPdfObjectUrl(localUrl);
+                    } catch (fetchErr) {
+                        console.error("Fetch operation failed:", fetchErr);
+                        setError("Direct file access failed. The file may be restricted.");
+                    }
+                }
             } catch (err) {
-                console.error("Error loading subtopic:", err);
+                console.error("Error loading subtopic content:", err);
+                setError('Could not load the lesson. Please check your connection.');
             } finally {
                 setLoading(false);
             }
         };
-        fetchSubtopic();
-    }, [id, subtopicId]);
 
-    if (loading) return <div style={{ padding: '20px' }}>Loading lesson...</div>;
-    if (!subtopic) return <div style={{ padding: '20px' }}>Content not found.</div>;
+        fetchSubtopicAndFile();
+
+        // Cleanup function to prevent memory leaks
+        return () => {
+            if (pdfObjectUrl) URL.revokeObjectURL(pdfObjectUrl);
+        };
+    }, [id, subtopicId]); // Refetch whenever the student clicks a new subtopic in the sidebar
+
+    if (loading) return <div className="p-5 text-center">Opening Lesson...</div>;
+    if (error) return <div className="p-5 text-danger text-center">{error}</div>;
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-            <div style={{ marginBottom: '20px' }}>
-                <h1 style={{ fontSize: '1.8rem', color: '#2c3e50' }}>{subtopic.title}</h1>
-                <p style={{ color: '#7f8c8d' }}>{subtopic.description || 'Lesson Material'}</p>
+            <div className="mb-3">
+                <h2 style={{ fontWeight: '600', color: '#2c3e50' }}>{subtopic?.title}</h2>
+                <hr />
             </div>
 
-            {/* THE PDF VIEWER CONTAINER */}
-            <div style={{ 
-                flex: 1, 
-                border: '1px solid rgba(0, 0, 0, 0.1)', 
-                borderRadius: '8px', 
-                overflow: 'hidden',
-                backgroundColor: '#eee',
-                height: '80vh' // Set a fixed height or use flex
-            }}>
-                {subtopic.fileUrl ? (
+            <div style={{ flex: 1, border: '1px solid #ddd', borderRadius: '8px', overflow: 'hidden', height: '75vh' }}>
+                {pdfObjectUrl ? (
                     <Worker workerUrl="https://unpkg.com/pdfjs-dist@3.4.120/build/pdf.worker.min.js">
                         <Viewer
-                            fileUrl={subtopic.fileUrl}
+                            fileUrl={pdfObjectUrl}
                             plugins={[defaultLayoutPluginInstance]}
                         />
                     </Worker>
                 ) : (
-                    <div style={{ 
-                        display: 'flex', 
-                        justifyContent: 'center', 
-                        alignItems: 'center', 
-                        height: '100%',
-                        color: '#666' 
-                    }}>
-                        <p>No PDF file attached to this lesson.</p>
+                    <div className="d-flex flex-column justify-content-center align-items-center h-100 bg-light text-muted">
+                        <span style={{ fontSize: '3rem' }}>📄</span>
+                        <p className="mt-3">This lesson does not have a PDF document attached.</p>
+                        {subtopic?.content && <p className="px-5 text-center">{subtopic.content}</p>}
                     </div>
                 )}
             </div>
