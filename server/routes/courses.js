@@ -3,7 +3,7 @@ const yup = require("yup");
 const multer = require("multer");
 const { put } = require("@vercel/blob");
 const upload = multer({ storage: multer.memoryStorage() });
-const { Course, User, Topic, Subtopic, Enrollment, Progress, Quiz, Question, Discussion } = require("../models");
+const { Course, User, Topic, Subtopic, Enrollment, Progress, Quiz, Question, DiscussionBoard } = require("../models");
 const validateToken = require("../middleware/validateToken");
 
 const router = express.Router();
@@ -86,7 +86,7 @@ router.get("/:id", async (req, res) => {
         },
         // NEW: Include Discussions
         {
-          model: Discussion,
+          model: DiscussionBoard,
           as: "discussions"
         }
       ],
@@ -220,7 +220,8 @@ router.put("/:id", validateToken, upload.any(), async (req, res) => {
       return res.status(403).json({ message: "You can only edit your own courses." });
     }
 
-    const { title, description, category, thumbnail, topicsData } = req.body;
+    // Notice discussionsData is added here!
+    const { title, description, category, thumbnail, topicsData, discussionsData } = req.body;
 
     let parsedTopics = [];
     if (topicsData) {
@@ -278,7 +279,7 @@ router.put("/:id", validateToken, upload.any(), async (req, res) => {
       thumbnail: validatedData.thumbnail,
     });
 
-    // Existing DB data
+    // Existing DB data for topics
     const existingTopics = await Topic.findAll({
       where: { courseId: course.id },
       include: [{ model: Subtopic, as: "subtopics" }],
@@ -350,6 +351,45 @@ router.put("/:id", validateToken, upload.any(), async (req, res) => {
       }
     }
 
+    // --- 4. Update/create discussion boards ---
+    if (discussionsData) {
+      const parsedDiscussions = JSON.parse(discussionsData);
+      
+      const existingBoards = await DiscussionBoard.findAll({
+        where: { courseId: course.id }
+      });
+      
+      const existingBoardMap = new Map(existingBoards.map(b => [String(b.id), b]));
+      const incomingBoardIds = new Set(
+        parsedDiscussions.filter(b => b.id).map(b => String(b.id))
+      );
+
+      // Delete removed boards
+      for (const board of existingBoards) {
+        if (!incomingBoardIds.has(String(board.id))) {
+          await DiscussionBoard.destroy({ where: { id: board.id } });
+        }
+      }
+
+      // Update or Create boards
+      for (const discData of parsedDiscussions) {
+        if (discData.id && existingBoardMap.has(String(discData.id))) {
+          const boardRecord = existingBoardMap.get(String(discData.id));
+          await boardRecord.update({
+            title: discData.title,
+            prompt: discData.prompt,
+          });
+        } else {
+          await DiscussionBoard.create({
+            title: discData.title,
+            prompt: discData.prompt,
+            courseId: course.id,
+          });
+        }
+      }
+    }
+
+    // --- 5. Fetch the fully updated course to send back to the frontend ---
     const updatedCourse = await Course.findByPk(course.id, {
       include: [
         {
@@ -366,6 +406,10 @@ router.put("/:id", validateToken, upload.any(), async (req, res) => {
               as: "subtopics",
             }
           ]
+        },
+        {
+          model: DiscussionBoard,
+          as: "discussions"
         }
       ]
     });
@@ -383,6 +427,8 @@ router.put("/:id", validateToken, upload.any(), async (req, res) => {
     });
   }
 });
+
+  
 
 // --- STUDENT ENROLL IN COURSE ---
 router.post("/:courseId/enroll", validateToken, async (req, res) => {
@@ -589,7 +635,7 @@ router.get("/:courseId/subtopics/:subtopicId", validateToken, async (req, res) =
 
     // 2. Check if user is instructor or an approved student
     const isInstructor = course.instructorId === userId;
-    
+
     if (!isInstructor) {
       const enrollment = await Enrollment.findOne({
         where: { userId, courseId, status: "approved" },
@@ -644,7 +690,7 @@ router.get("/:courseId/my-enrollment", validateToken, async (req, res) => {
 router.post("/:courseId/quizzes", validateToken, async (req, res) => {
   try {
     const { courseId } = req.params;
-    const { title, description, requiresPassword, password, questions } = req.body;
+    const { title, description, category, thumbnail, topicsData, discussionsData } = req.body;
 
     // 1. Verify Course & Ownership
     const course = await Course.findByPk(courseId);
@@ -690,7 +736,7 @@ router.get("/:courseId/quizzes/:quizId", validateToken, async (req, res) => {
         model: Question,
         as: "questions",
         // CRITICAL: We DO NOT send the correct answer to the frontend!
-        attributes: ['id', 'text', 'type', 'options'] 
+        attributes: ['id', 'text', 'type', 'options']
       }]
     });
 
@@ -733,7 +779,7 @@ router.post("/:courseId/quizzes/:quizId/verify-password", validateToken, async (
 router.post("/:courseId/quizzes/:quizId/submit", validateToken, async (req, res) => {
   try {
     const { answers } = req.body; // Looks like { "questionId_1": "0", "questionId_2": "apple" }
-    
+
     // Fetch questions WITH the correct answers so we can grade them
     const questions = await Question.findAll({ where: { quizId: req.params.quizId } });
 
@@ -747,14 +793,14 @@ router.post("/:courseId/quizzes/:quizId/submit", validateToken, async (req, res)
       if (q.type === 'MCQ') {
         autoGradableCount++;
         if (studentAnswer === q.correctAnswer) score++;
-      } 
+      }
       else if (q.type === 'SHORT') {
         autoGradableCount++;
         // Case insensitive grading, trimmed whitespace
         if (studentAnswer?.trim().toLowerCase() === q.correctAnswer?.trim().toLowerCase()) {
           score++;
         }
-      } 
+      }
       else if (q.type === 'LONG') {
         pendingManualGrade = true; // Cannot auto-grade essays
       }
@@ -776,14 +822,14 @@ router.post("/:courseId/quizzes/:quizId/submit", validateToken, async (req, res)
 router.get("/instructor/pending-grading", validateToken, async (req, res) => {
   try {
     const submissions = await QuizSubmission.findAll({
-      where: { 
-        needsManualGrading: true, 
-        isGraded: false 
+      where: {
+        needsManualGrading: true,
+        isGraded: false
       },
       include: [
         { model: User, as: "user", attributes: ["id", "fullName", "email"] },
-        { 
-          model: Quiz, 
+        {
+          model: Quiz,
           as: "quiz",
           // Verify this instructor owns the course the quiz belongs to
           include: [{ model: Course, as: "course", where: { instructorId: req.user.id } }, { model: Question, as: "questions" }]
