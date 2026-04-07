@@ -21,6 +21,7 @@ import CreateQuiz from './pages/CreateQuiz';
 import TakeQuiz from './pages/TakeQuiz';
 import EditQuiz from './pages/EditQuiz';
 import DiscussionRoom from './pages/DiscussionRoom';
+import SupportPage from './pages/SupportPage';
 
 // Components
 import Chatbot from './components/Chatbot';
@@ -248,6 +249,10 @@ const AppContent = () => {
               <ProtectedRoute><DiscussionRoom /></ProtectedRoute>
             } />
           </Route>
+
+          <Route path="/supportpage" element={
+            <ProtectedRoute><SupportPage /></ProtectedRoute>
+            } />
 
           {/* Fallback */}
           <Route path="*" element={<Navigate to="/" replace />} />

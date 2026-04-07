@@ -6,7 +6,7 @@ const mysql = require('mysql2/promise');
 const { handleUpload } = require('@vercel/blob/client');
 
 // --- 1. ADD THESE SPECIFIC IMPORTS ---
-const { sequelize, User, Course, Topic, Subtopic } = require("./models");
+const { sequelize, User, Course, Topic, Subtopic, SupportTicket, } = require("./models");
 const protect = require("./middleware/validateToken");
 // --------------------------------------
 
@@ -18,6 +18,7 @@ const enrollmentRoutes = require("./routes/enrollment");
 const progressRoutes = require("./routes/progress");
 const extractRoute = require('./routes/extract');
 const discussionRoutes = require("./routes/discussions");
+const supportRoutes = require("./routes/support");
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -25,6 +26,7 @@ const PORT = process.env.PORT || 3001;
 // --- MIDDLEWARE ---
 app.use(cors());
 app.use(express.json());
+
 
 // --- API ROUTES ---
 app.use("/api/auth", authRoutes);
@@ -35,6 +37,7 @@ app.use("/api/enrollments", enrollmentRoutes);
 app.use("/api/progress", progressRoutes);
 app.use("/api/discussions", discussionRoutes)
 app.use(extractRoute);
+app.use("/api/support", supportRoutes);
 
 // Test route
 app.get("/", (req, res) => {
