@@ -21,18 +21,30 @@ const CoursePage = () => {
     const fetchCourseData = async () => {
       try {
         setLoading(true);
+        
+        // 1. Fetch main course details
         const res = await api.get(`/courses/${id}`);
         setCourse(res.data);
 
+        // 2. Fetch enrollment status (and save it to a variable so we can check it immediately)
+        let currentStatus = null;
         if (user?.role === 'student') {
           const enrollRes = await api.get(`/courses/${id}/my-enrollment`);
-          setEnrollmentStatus(enrollRes.data?.status || null);
+          currentStatus = enrollRes.data?.status || null;
+          setEnrollmentStatus(currentStatus);
         }
 
-        // Fetch topics for the summary list
-        const topicRes = await api.get(`/courses/${id}/topics`);
-        setTopics(topicRes.data);
+        // 3. ONLY fetch topics if they are an Instructor OR an Approved Student
+        if (user?.role === 'instructor' || currentStatus === 'approved') {
+          const topicRes = await api.get(`/courses/${id}/topics`);
+          setTopics(topicRes.data);
+        } else {
+          // If not approved, just leave topics empty so the page still loads!
+          setTopics([]); 
+        }
+
       } catch (err) {
+        console.error(err);
         setError('Failed to load course.');
       } finally {
         setLoading(false);
@@ -131,15 +143,37 @@ const CoursePage = () => {
             )}
           </section>
         );
-      case 'discussion':
+     case 'discussion':
+        const discussions = course?.discussions || [];
+
         return (
           <section className="course-discussions" style={{ animation: 'fadeIn 0.3s ease-in-out', background: '#fff', padding: '30px', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
-            <h3 style={{ color: '#2c3e50', marginBottom: '15px' }}>Discussion Board</h3>
-            <div style={{ padding: '40px', textAlign: 'center', backgroundColor: '#f8f9fa', borderRadius: '8px', color: '#7f8c8d' }}>
-              <span style={{ fontSize: '2.5rem', display: 'block', marginBottom: '10px' }}>💬</span>
-              <p>The discussion board will open once the course begins.</p>
-              {/* Future feature: Add an input box here for students to post questions */}
-            </div>
+            <h3 style={{ color: '#2c3e50', marginBottom: '15px' }}>Discussion Boards</h3>
+            
+            {discussions.length === 0 ? (
+              <div style={{ padding: '40px', textAlign: 'center', backgroundColor: '#f8f9fa', borderRadius: '8px', color: '#7f8c8d' }}>
+                <span style={{ fontSize: '2.5rem', display: 'block', marginBottom: '10px' }}>💬</span>
+                <p>No discussion boards are currently available for this course.</p>
+              </div>
+            ) : (
+              <div style={{ display: 'grid', gap: '15px' }}>
+                {discussions.map((disc) => (
+                  <div key={disc.id} style={{ background: '#f8f9fa', padding: '20px', borderRadius: '8px', border: '1px solid #ecf0f1', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div>
+                      <h4 style={{ margin: '0 0 5px 0', color: '#2c3e50', fontSize: '1.2rem' }}>{disc.title}</h4>
+                      <p style={{ margin: '0 0 10px 0', color: '#7f8c8d', fontSize: '0.95rem' }}>{disc.prompt}</p>
+                    </div>
+                    <button 
+                      className="btn-primary"
+                      onClick={() => navigate(`/courses/${id}/discussion/${disc.id}`)}
+                      style={{ padding: '10px 20px', borderRadius: '6px', cursor: 'pointer', border: 'none', backgroundColor: '#2ecc71', color: 'white', fontWeight: 'bold' }}
+                    >
+                      Join Discussion
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </section>
         );
       default:

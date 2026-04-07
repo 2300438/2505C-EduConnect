@@ -19,6 +19,7 @@ import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
 import CreateQuiz from './pages/CreateQuiz';
 import TakeQuiz from './pages/TakeQuiz';
+import DiscussionRoom from './pages/DiscussionRoom';
 
 // Components
 import Chatbot from './components/Chatbot';
@@ -237,6 +238,9 @@ const AppContent = () => {
             } />
             <Route path="/courses/:id/quiz/:quizId" element={
               <ProtectedRoute><TakeQuiz /></ProtectedRoute>
+            } />
+            <Route path="/courses/:id/discussion/:discId" element={
+              <ProtectedRoute><DiscussionRoom /></ProtectedRoute>
             } />
           </Route>
 

@@ -17,6 +17,7 @@ const dashboardRoutes = require("./routes/dashboard");
 const enrollmentRoutes = require("./routes/enrollment");
 const progressRoutes = require("./routes/progress");
 const extractRoute = require('./routes/extract');
+const discussionRoutes = require("./routes/discussions");
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -32,6 +33,7 @@ app.use("/api/courses", courseRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/enrollments", enrollmentRoutes);
 app.use("/api/progress", progressRoutes);
+app.use("/api/discussions", discussionRoutes)
 app.use(extractRoute);
 
 // Test route
