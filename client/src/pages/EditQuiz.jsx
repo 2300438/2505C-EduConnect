@@ -1,23 +1,27 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { Formik, Form, FieldArray } from 'formik';
 import * as Yup from 'yup';
 import {
   Box, Container, TextField, Button, Typography, Paper, IconButton, 
-  Divider, CircularProgress, Alert, Card, MenuItem, Select, FormControl, 
+  CircularProgress, Alert, Card, MenuItem, Select, FormControl, 
   InputLabel, Radio, FormControlLabel, Switch
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome'; // <-- Added AI Icon
+import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 
-const CreateQuiz = () => {
+const EditQuiz = () => {
   const navigate = useNavigate();
-  const { id: courseId } = useParams();
+  // We need both the courseId and the quizId from the URL
+  const { id: courseId, quizId } = useParams(); 
+  
+  const [initialValues, setInitialValues] = useState(null);
+  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [generatingAI, setGeneratingAI] = useState(false); // <-- AI loading state
-  const [aiCount, setAiCount] = useState(5); // <-- Default to 5 questions
+  const [generatingAI, setGeneratingAI] = useState(false);
+  const [aiCount, setAiCount] = useState(5);
   const [error, setError] = useState(null);
 
   const validationSchema = Yup.object().shape({
@@ -37,17 +41,42 @@ const CreateQuiz = () => {
     ).min(1, 'You must add at least one question.')
   });
 
-  const initialValues = {
-    title: '',
-    description: '',
-    requiresPassword: false,
-    password: '',
-    questions: [
-      { text: '', type: 'MCQ', options: ['', ''], correctAnswer: '0' }
-    ]
-  };
+  // Fetch the existing quiz data when the page loads
+  useEffect(() => {
+    const fetchQuiz = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        // Make sure you have this GET route on your backend!
+        const response = await fetch(`${import.meta.env.VITE_API_URL}/api/courses/${courseId}/quizzes/${quizId}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
 
-  // --- NEW: Handle AI Generation ---
+        if (!response.ok) throw new Error('Failed to fetch quiz data');
+
+        const data = await response.json();
+
+        // Format the data for Formik
+        setInitialValues({
+          title: data.title || '',
+          description: data.description || '',
+          requiresPassword: data.requiresPassword || false,
+          password: data.password || '',
+          questions: data.questions?.length > 0 ? data.questions : [
+            { text: '', type: 'MCQ', options: ['', ''], correctAnswer: '0' }
+          ]
+        });
+      } catch (err) {
+        console.error(err);
+        setError("Could not load the quiz. It may have been deleted.");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchQuiz();
+  }, [courseId, quizId]);
+
+  // AI Generator Function
   const handleAIGenerate = async (setFieldValue, currentQuestions) => {
     setGeneratingAI(true);
     setError(null);
@@ -63,21 +92,15 @@ const CreateQuiz = () => {
         body: JSON.stringify({ count: aiCount }),
       });
 
-      if (!response.ok) {
-        const errData = await response.json();
-        throw new Error(errData.message || 'Failed to generate questions.');
-      }
+      if (!response.ok) throw new Error('Failed to generate questions.');
 
       const data = await response.json();
       
-      // If the only question is the empty default one, replace it. Otherwise, append.
       const existingQs = (currentQuestions.length === 1 && currentQuestions[0].text === '') 
         ? [] 
         : currentQuestions;
 
-      // Inject the AI questions into Formik
       setFieldValue('questions', [...existingQs, ...data.aiQuestions]);
-
     } catch (err) {
       setError(err.message);
     } finally {
@@ -89,9 +112,11 @@ const CreateQuiz = () => {
     setSaving(true);
     setError(null);
     const token = localStorage.getItem('token');
+    
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/courses/${courseId}/quizzes`, {
-        method: 'POST',
+      // Notice this is a PUT request to update the specific quiz
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/api/courses/${courseId}/quizzes/${quizId}`, {
+        method: 'PUT',
         headers: { 
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}` 
@@ -103,7 +128,7 @@ const CreateQuiz = () => {
         navigate(`/course/edit/${courseId}`);
       } else {
         const data = await response.json();
-        setError(data.message || 'Failed to create quiz.');
+        setError(data.message || 'Failed to update quiz.');
       }
     } catch (err) {
       setError('An error occurred while communicating with the server.');
@@ -111,6 +136,9 @@ const CreateQuiz = () => {
       setSaving(false);
     }
   };
+
+  if (loading) return <Container sx={{ py: 5 }}><CircularProgress /></Container>;
+  if (!initialValues) return <Container sx={{ py: 5 }}><Alert severity="error">{error}</Alert></Container>;
 
   return (
     <Container maxWidth="md" sx={{ py: 5 }}>
@@ -125,7 +153,7 @@ const CreateQuiz = () => {
 
       <Paper elevation={3} sx={{ p: 4, borderRadius: 2 }}>
         <Typography variant="h4" fontWeight="bold" gutterBottom>
-          Create New Assessment
+          Edit Assessment
         </Typography>
         
         {error && <Alert severity="error" sx={{ mb: 3 }}>{error}</Alert>}
@@ -134,6 +162,7 @@ const CreateQuiz = () => {
           initialValues={initialValues}
           validationSchema={validationSchema}
           onSubmit={handleSubmit}
+          enableReinitialize // CRITICAL: Allows Formik to update when initialValues load
         >
           {({ values, handleChange, setFieldValue, errors, touched }) => (
             <Form>
@@ -174,14 +203,14 @@ const CreateQuiz = () => {
                 </Box>
               </Box>
 
-              {/* NEW: AI GENERATOR BOX */}
+              {/* AI GENERATOR BOX */}
               <Box sx={{ mb: 4, p: 3, bgcolor: '#e3f2fd', borderRadius: 2, display: 'flex', alignItems: 'center', gap: 3, flexWrap: 'wrap' }}>
                 <Box display="flex" alignItems="center" gap={1}>
                   <AutoAwesomeIcon color="primary" />
                   <Typography variant="h6" color="primary">AI Assistant</Typography>
                 </Box>
                 <Typography variant="body2" color="textSecondary" sx={{ flexGrow: 1 }}>
-                  Generate questions automatically based on course materials.
+                  Generate more questions automatically.
                 </Typography>
                 <Box display="flex" alignItems="center" gap={2}>
                   <TextField
@@ -190,8 +219,7 @@ const CreateQuiz = () => {
                     inputProps={{ min: 1, max: 20 }} sx={{ width: 100, bgcolor: 'white' }}
                   />
                   <Button
-                    variant="contained" color="primary"
-                    disabled={generatingAI}
+                    variant="contained" color="primary" disabled={generatingAI}
                     onClick={() => handleAIGenerate(setFieldValue, values.questions)}
                   >
                     {generatingAI ? <CircularProgress size={24} color="inherit" /> : 'Generate'}
@@ -201,7 +229,7 @@ const CreateQuiz = () => {
 
               {/* QUESTION BUILDER */}
               <Box sx={{ mb: 4 }}>
-                <Typography variant="h6" color="primary" gutterBottom>2. Build Questions</Typography>
+                <Typography variant="h6" color="primary" gutterBottom>2. Edit Questions</Typography>
                 
                 <FieldArray name="questions">
                   {({ push, remove }) => (
@@ -288,7 +316,7 @@ const CreateQuiz = () => {
               </Box>
 
               <Button type="submit" variant="contained" color="success" size="large" fullWidth disabled={saving}>
-                {saving ? <CircularProgress size={24} color="inherit" /> : 'Publish Quiz'}
+                {saving ? <CircularProgress size={24} color="inherit" /> : 'Save Changes'}
               </Button>
             </Form>
           )}
@@ -298,4 +326,4 @@ const CreateQuiz = () => {
   );
 };
 
-export default CreateQuiz;
+export default EditQuiz;

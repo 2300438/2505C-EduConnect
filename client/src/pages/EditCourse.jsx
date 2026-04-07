@@ -360,7 +360,7 @@ const EditCourse = () => {
                       variant="contained"
                       color="secondary"
                       startIcon={<AddCircleOutlineIcon />}
-                      onClick={() => navigate(`/course/${id}/quizzes/new`)} // Navigates to the new page!
+                      onClick={() => navigate(`/course/${id}/quizzes/new`)}
                     >
                       Create New Quiz
                     </Button>
@@ -383,8 +383,29 @@ const EditCourse = () => {
                           </Box>
 
                           <Box>
-                            <Button size="small" variant="outlined" sx={{ mr: 1 }}>Edit</Button>
-                            <IconButton color="error" size="small"><DeleteIcon /></IconButton>
+                            {/* FIX: Added onClick to navigate to the Edit Quiz route */}
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              sx={{ mr: 1 }}
+                              onClick={() => navigate(`/course/${id}/quizzes/edit/${quiz.id}`)}
+                            >
+                              Edit
+                            </Button>
+
+                            {/* FIX: Added a placeholder for deleting (You will need to hook this up to your API later) */}
+                            <IconButton
+                              color="error"
+                              size="small"
+                              onClick={() => {
+                                if (window.confirm('Are you sure you want to delete this quiz?')) {
+                                  // TODO: Add your delete API call here later
+                                  console.log("Delete quiz ID:", quiz.id);
+                                }
+                              }}
+                            >
+                              <DeleteIcon />
+                            </IconButton>
                           </Box>
                         </Card>
                       ))}

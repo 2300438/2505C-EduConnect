@@ -19,6 +19,7 @@ import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
 import CreateQuiz from './pages/CreateQuiz';
 import TakeQuiz from './pages/TakeQuiz';
+import EditQuiz from './pages/EditQuiz';
 
 // Components
 import Chatbot from './components/Chatbot';
@@ -223,6 +224,10 @@ const AppContent = () => {
             } />
             <Route path="/course/:id/quizzes/new" element={
               <ProtectedRoute allowedRole="instructor"><CreateQuiz /></ProtectedRoute>
+            } />
+
+            <Route path="/course/:id/quizzes/edit/:quizId" element={
+              <ProtectedRoute allowedRole="instructor"><EditQuiz /></ProtectedRoute>
             } />
 
             {/* General Protected Routes */}

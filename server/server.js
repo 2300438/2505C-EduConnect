@@ -195,9 +195,9 @@ app.post('/api/chat', protect, async (req, res) => {
         - For instructors, be practical and concise.
         - Do not use markdown symbols like **, *, #, or - for formatting.
         - Use plain simple sentences.
+        - Question asked should be related to anything that the portal have. If not, let them know that question should be related.
         `.trim();
 
-        // Note: Make sure you are using a valid Gemini model string (gemini-1.5-flash is current standard)
         const model = genAI.getGenerativeModel({
             model: "gemini-2.5-flash", 
             systemInstruction: systemPrompt
@@ -255,3 +255,72 @@ sequelize.sync()
     .catch((error) => {
         console.error("Database connection failed:", error);
     });
+
+// POST /api/courses/:id/generate-ai-quiz
+app.post('/api/courses/:id/generate-ai-quiz', async (req, res) => {
+    try {
+        const { count } = req.body;
+        const courseId = req.params.id;
+
+        // 1. Fetch all Subtopics for this course to get the learning materials
+        // Adjust this query based on how your Sequelize models are related (Course -> Topic -> Subtopic)
+        const subtopics = await Subtopic.findAll({
+            include: [{
+                model: Topic,
+                as: 'topic',
+                where: { courseId: courseId }
+            }]
+        });
+
+        // 2. Combine all the extracted text
+        let combinedText = subtopics
+            .map(sub => sub.extracted_text)
+            .filter(text => text !== null && text.trim() !== '')
+            .join('\n\n--- NEXT LESSON ---\n\n');
+
+        if (!combinedText) {
+            return res.status(400).json({ message: "No text available in course materials to generate a quiz." });
+        }
+
+        // 3. Set up the Gemini Model
+        const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+
+        // 4. Create the STRICT prompt demanding JSON
+        const prompt = `
+            You are an expert educator. I will provide you with course material.
+            Generate exactly ${count} multiple choice questions based ONLY on this material.
+            
+            CRITICAL RULES:
+            - You MUST output ONLY raw, valid JSON. No markdown formatting, no \`\`\`json wrappers.
+            - Follow this EXACT array structure:
+            [
+              {
+                "text": "The question goes here?",
+                "type": "MCQ",
+                "options": ["Option A", "Option B", "Option C", "Option D"],
+                "correctAnswer": "0" 
+              }
+            ]
+            - "correctAnswer" MUST be a string representing the index of the correct option (e.g., "0" for the first option, "1" for the second).
+            - Include exactly 4 options per question.
+
+            Here is the course material:
+            ${combinedText}
+        `;
+
+        // 5. Ask Gemini
+        const result = await model.generateContent(prompt);
+        let responseText = result.response.text();
+
+        // 6. Clean up the response in case Gemini includes markdown wrappers
+        responseText = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
+
+        const aiQuestions = JSON.parse(responseText);
+
+        res.json({ aiQuestions });
+
+    } catch (error) {
+        console.error("AI Generation Error:", error);
+        res.status(500).json({ message: "Failed to generate questions with AI." });
+    }
+});

@@ -817,4 +817,50 @@ router.put("/instructor/grade-submission/:id", validateToken, async (req, res) =
   }
 });
 
+// GET a specific quiz for editing
+router.get('/:courseId/quizzes/:quizId', async (req, res) => {
+    try {
+        const { courseId, quizId } = req.params;
+        
+        const quiz = await Quiz.findOne({
+            where: { id: quizId, courseId: courseId }
+        });
+
+        if (!quiz) return res.status(404).json({ message: "Quiz not found." });
+        
+        res.json(quiz);
+    } catch (error) {
+        console.error("Error fetching quiz:", error);
+        res.status(500).json({ message: "Internal server error while fetching quiz." });
+    }
+});
+
+// PUT (Update) a specific quiz
+router.put('/:courseId/quizzes/:quizId', async (req, res) => {
+    try {
+        const { courseId, quizId } = req.params;
+        const { title, description, requiresPassword, password, questions } = req.body;
+
+        const quiz = await Quiz.findOne({
+            where: { id: quizId, courseId: courseId }
+        });
+
+        if (!quiz) return res.status(404).json({ message: "Quiz not found." });
+
+        // Update the quiz fields
+        quiz.title = title;
+        quiz.description = description;
+        quiz.requiresPassword = requiresPassword;
+        quiz.password = requiresPassword ? password : null; 
+        quiz.questions = questions;
+
+        await quiz.save();
+
+        res.json({ message: "Quiz updated successfully!", quiz });
+    } catch (error) {
+        console.error("Error updating quiz:", error);
+        res.status(500).json({ message: "Internal server error while updating quiz." });
+    }
+});
+
 module.exports = router;

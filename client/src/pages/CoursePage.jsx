@@ -14,8 +14,10 @@ const CoursePage = () => {
   const [topics, setTopics] = useState([]);
   const [enrollmentStatus, setEnrollmentStatus] = useState(null);
   
-  // NEW: State to manage the active tab
-  const [activeTab, setActiveTab] = useState('content'); // 'content', 'assessment', or 'discussion'
+  const [activeTab, setActiveTab] = useState('content'); 
+  
+  // NEW: State to control the popup modal
+  const [viewingQuiz, setViewingQuiz] = useState(null); 
 
   useEffect(() => {
     const fetchCourseData = async () => {
@@ -29,7 +31,6 @@ const CoursePage = () => {
           setEnrollmentStatus(enrollRes.data?.status || null);
         }
 
-        // Fetch topics for the summary list
         const topicRes = await api.get(`/courses/${id}/topics`);
         setTopics(topicRes.data);
       } catch (err) {
@@ -44,7 +45,6 @@ const CoursePage = () => {
   if (loading) return <div className="p-5">Loading Course...</div>;
   if (error) return <div className="p-5 text-danger">{error}</div>;
 
-  // Render logic for the different tabs
   const renderTabContent = () => {
     switch (activeTab) {
       case 'content':
@@ -77,7 +77,7 @@ const CoursePage = () => {
           </section>
         );
       case 'assessment':
-        const quizzes = course?.quizzes || []; // Safely extract quizzes from the fetched course
+        const quizzes = course?.quizzes || []; 
         
         return (
           <section className="course-assessments" style={{ animation: 'fadeIn 0.3s ease-in-out', background: '#fff', padding: '30px', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
@@ -115,13 +115,13 @@ const CoursePage = () => {
                     </div>
 
                     <div>
-                      {/* Navigate the student to the "Take Quiz" page */}
+                      {/* NEW: Open the modal instead of navigating */}
                       <button 
                         className="btn-primary"
-                        onClick={() => navigate(`/courses/${id}/quiz/${quiz.id}`)}
+                        onClick={() => setViewingQuiz(quiz)}
                         style={{ padding: '10px 20px', borderRadius: '6px', cursor: 'pointer', border: 'none', backgroundColor: '#9b59b6', color: 'white', fontWeight: 'bold' }}
                       >
-                        Take Quiz
+                        Preview Quiz
                       </button>
                     </div>
 
@@ -138,7 +138,6 @@ const CoursePage = () => {
             <div style={{ padding: '40px', textAlign: 'center', backgroundColor: '#f8f9fa', borderRadius: '8px', color: '#7f8c8d' }}>
               <span style={{ fontSize: '2.5rem', display: 'block', marginBottom: '10px' }}>💬</span>
               <p>The discussion board will open once the course begins.</p>
-              {/* Future feature: Add an input box here for students to post questions */}
             </div>
           </section>
         );
@@ -149,7 +148,7 @@ const CoursePage = () => {
 
   return (
     <div style={{ maxWidth: '1000px', margin: '0 auto', width: '100%' }}>
-      {/* 1. COURSE HEADER */}
+      {/* COURSE HEADER */}
       <header className="dashboard-header" style={{ marginBottom: '30px', background: '#fff', padding: '30px', borderRadius: '12px', boxShadow: '0 4px 6px rgba(0,0,0,0.05)' }}>
         <h2 style={{ fontSize: '2rem', color: '#2c3e50', marginBottom: '10px' }}>{course.title}</h2>
         <p style={{ fontSize: '1.1rem', color: '#7f8c8d', lineHeight: '1.6' }}>{course.description}</p>
@@ -178,71 +177,96 @@ const CoursePage = () => {
         </div>
       </header>
 
-      {/* 2. TAB NAVIGATION */}
+      {/* TAB NAVIGATION */}
       <div style={{ 
-        display: 'flex', 
-        gap: '10px', 
-        marginBottom: '30px', 
-        borderBottom: '2px solid #ecf0f1',
-        paddingBottom: '1px' 
+        display: 'flex', gap: '10px', marginBottom: '30px', borderBottom: '2px solid #ecf0f1', paddingBottom: '1px' 
       }}>
         <button 
           onClick={() => setActiveTab('content')}
-          style={{
-            padding: '12px 24px',
-            fontSize: '1rem',
-            fontWeight: '600',
-            backgroundColor: 'transparent',
-            border: 'none',
-            borderBottom: activeTab === 'content' ? '3px solid #3498db' : '3px solid transparent',
-            color: activeTab === 'content' ? '#3498db' : '#7f8c8d',
-            cursor: 'pointer',
-            transition: 'all 0.2s ease',
-            outline: 'none'
-          }}
+          style={{ padding: '12px 24px', fontSize: '1rem', fontWeight: '600', backgroundColor: 'transparent', border: 'none', borderBottom: activeTab === 'content' ? '3px solid #3498db' : '3px solid transparent', color: activeTab === 'content' ? '#3498db' : '#7f8c8d', cursor: 'pointer', transition: 'all 0.2s ease', outline: 'none' }}
         >
           📚 Content
         </button>
         <button 
           onClick={() => setActiveTab('assessment')}
-          style={{
-            padding: '12px 24px',
-            fontSize: '1rem',
-            fontWeight: '600',
-            backgroundColor: 'transparent',
-            border: 'none',
-            borderBottom: activeTab === 'assessment' ? '3px solid #9b59b6' : '3px solid transparent',
-            color: activeTab === 'assessment' ? '#9b59b6' : '#7f8c8d',
-            cursor: 'pointer',
-            transition: 'all 0.2s ease',
-            outline: 'none'
-          }}
+          style={{ padding: '12px 24px', fontSize: '1rem', fontWeight: '600', backgroundColor: 'transparent', border: 'none', borderBottom: activeTab === 'assessment' ? '3px solid #9b59b6' : '3px solid transparent', color: activeTab === 'assessment' ? '#9b59b6' : '#7f8c8d', cursor: 'pointer', transition: 'all 0.2s ease', outline: 'none' }}
         >
           📝 Assessment
         </button>
         <button 
           onClick={() => setActiveTab('discussion')}
-          style={{
-            padding: '12px 24px',
-            fontSize: '1rem',
-            fontWeight: '600',
-            backgroundColor: 'transparent',
-            border: 'none',
-            borderBottom: activeTab === 'discussion' ? '3px solid #2ecc71' : '3px solid transparent',
-            color: activeTab === 'discussion' ? '#2ecc71' : '#7f8c8d',
-            cursor: 'pointer',
-            transition: 'all 0.2s ease',
-            outline: 'none'
-          }}
+          style={{ padding: '12px 24px', fontSize: '1rem', fontWeight: '600', backgroundColor: 'transparent', border: 'none', borderBottom: activeTab === 'discussion' ? '3px solid #2ecc71' : '3px solid transparent', color: activeTab === 'discussion' ? '#2ecc71' : '#7f8c8d', cursor: 'pointer', transition: 'all 0.2s ease', outline: 'none' }}
         >
           💬 Discussion Board
         </button>
       </div>
 
-      {/* 3. TAB CONTENT RENDERING */}
+      {/* TAB CONTENT RENDERING */}
       <div style={{ minHeight: '400px' }}>
         {renderTabContent()}
       </div>
+
+      {/* NEW: QUIZ PREVIEW MODAL */}
+      {viewingQuiz && (
+        <div style={{ 
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, 
+          backgroundColor: 'rgba(0,0,0,0.6)', display: 'flex', justifyContent: 'center', 
+          alignItems: 'center', zIndex: 1000 
+        }}>
+          <div style={{ 
+            background: 'white', padding: '30px', borderRadius: '12px', 
+            width: '90%', maxWidth: '700px', maxHeight: '85vh', overflowY: 'auto',
+            boxShadow: '0 10px 25px rgba(0,0,0,0.2)'
+          }}>
+            <h2 style={{ marginTop: 0, color: '#2c3e50' }}>{viewingQuiz.title} Preview</h2>
+            {viewingQuiz.description && <p style={{ color: '#7f8c8d' }}>{viewingQuiz.description}</p>}
+            <hr style={{ margin: '20px 0', borderTop: '1px solid #ecf0f1' }} />
+
+            {/* Display Questions */}
+            {viewingQuiz.questions?.map((q, i) => (
+              <div key={i} style={{ marginBottom: '25px', padding: '15px', backgroundColor: '#f8f9fa', borderRadius: '8px' }}>
+                <strong style={{ fontSize: '1.1rem', color: '#34495e' }}>Q{i + 1}: {q.text}</strong>
+                
+                {q.type === 'MCQ' && (
+                  <ul style={{ listStyleType: 'none', paddingLeft: 0, marginTop: '12px' }}>
+                    {q.options?.map((opt, oIdx) => {
+                      const isCorrect = q.correctAnswer === String(oIdx);
+                      return (
+                        <li key={oIdx} style={{ 
+                          padding: '8px 12px', 
+                          marginBottom: '6px', 
+                          borderRadius: '4px',
+                          backgroundColor: isCorrect ? '#e8f8f5' : '#fff',
+                          border: isCorrect ? '1px solid #2ecc71' : '1px solid #e0e0e0',
+                          color: isCorrect ? '#27ae60' : '#2c3e50',
+                          fontWeight: isCorrect ? 'bold' : 'normal'
+                        }}>
+                          {opt} {isCorrect && ' ✓ (Correct)'}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+                
+                {q.type === 'SHORT' && (
+                  <p style={{ marginTop: '10px', color: '#27ae60', fontWeight: 'bold' }}>
+                    Correct Answer: {q.correctAnswer}
+                  </p>
+                )}
+              </div>
+            ))}
+
+            <div style={{ textAlign: 'right', marginTop: '30px' }}>
+              <button 
+                onClick={() => setViewingQuiz(null)} 
+                style={{ padding: '10px 24px', backgroundColor: '#e74c3c', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}
+              >
+                Close Preview
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );
