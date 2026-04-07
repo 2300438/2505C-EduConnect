@@ -3,6 +3,10 @@ const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const yup = require("yup");
 const { User } = require("../models");
+const sendResetEmail = require('../utils/mailer');
+const crypto = require('node:crypto');
+const { Op } = require("sequelize");
+
 require("dotenv").config();
 
 const router = express.Router();
@@ -49,9 +53,11 @@ router.post("/register", async (req, res) => {
   }
 });
 
+// 1. THIS IS THE FIX: Added 'role' to the login validation schema
 const loginSchema = yup.object({
   email: yup.string().trim().email().required(),
   password: yup.string().required(),
+  role: yup.string().oneOf(["student", "instructor"]).required(), 
 });
 
 router.post("/login", async (req, res) => {
@@ -66,6 +72,13 @@ router.post("/login", async (req, res) => {
     const isPasswordValid = await bcrypt.compare(data.password, user.password);
     if (!isPasswordValid) {
       return res.status(401).json({ message: "Invalid email or password." });
+    }
+
+    // 2. THIS IS THE FIX: Check if the requested role matches the database
+    if (user.role !== data.role) {
+      return res.status(403).json({ 
+        message: `Account found, but you are registered as a ${user.role}. Please switch tabs.` 
+      });
     }
 
     const accessToken = jwt.sign(
@@ -94,6 +107,59 @@ router.post("/login", async (req, res) => {
       errors: error.errors || [error.message],
     });
   }
+});
+
+router.post('/forgot-password', async (req, res) => {
+    const { email } = req.body;
+
+    try {
+        const user = await User.findOne({ where: { email } });
+        
+        // Security Note: Don't tell the user if the email doesn't exist
+        if (!user) {
+            return res.json({ message: "If an account exists, a link has been sent." });
+        }
+
+        const token = crypto.randomBytes(20).toString('hex');
+        user.resetPasswordToken = token;
+        user.resetPasswordExpires = Date.now() + 3600000; // 1 Hour
+        await user.save();
+
+        // The URL the user clicks in their email
+        const resetUrl = `http://localhost:3000/reset-password/${token}`;
+
+        // FIRE THE EMAIL!
+        await sendResetEmail(user.email, resetUrl);
+
+        res.json({ message: "If an account exists, a link has been sent." });
+
+    } catch (error) {
+        console.error("Mail Error:", error);
+        res.status(500).json({ message: "Error sending reset email." });
+    }
+});
+
+router.post('/reset-password/:token', async (req, res) => {
+    try {
+        const user = await User.findOne({
+            where: {
+                resetPasswordToken: req.params.token,
+                resetPasswordExpires: { [Op.gt]: Date.now() } // Must be in the future
+            }
+        });
+
+        if (!user) return res.status(400).json({ message: "Token is invalid or expired." });
+
+        // Hash new password and clear token fields
+        user.password = await bcrypt.hash(req.body.password, 10);
+        user.resetPasswordToken = null;
+        user.resetPasswordExpires = null;
+        await user.save();
+
+        res.json({ message: "Password updated successfully!" });
+    } catch (err) {
+        res.status(500).json({ message: "Reset failed." });
+    }
 });
 
 module.exports = router;

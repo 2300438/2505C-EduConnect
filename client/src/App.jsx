@@ -1,162 +1,260 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, useNavigate, useLocation, Navigate } from 'react-router-dom';
+import { useAuth } from './context/AuthContext';
+
+// Pages
 import Home from './pages/Home';
 import Dashboard from './pages/Dashboard';
 import Profile from './pages/Profile';
 import InstructorDashboard from './pages/Instructor-Dashboard';
-import Chatbot from './components/Chatbot';
-import { jwtDecode } from "jwt-decode";
+import NewCourse from './pages/New-Course';
 import Login from './pages/Login';
-import { useAuth } from './context/AuthContext'; // Ensure this path is correct
+import Register from './pages/Register';
+import CoursePage from './pages/CoursePage';
+import SubtopicPage from './pages/SubtopicPage';
+import EditCourse from './pages/EditCourse';
+import BrowseCourses from './pages/BrowseCourses';
+import ProtectedRoute from './components/ProtectedRoute';
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
+import CreateQuiz from './pages/CreateQuiz';
+import TakeQuiz from './pages/TakeQuiz';
 
-// --- 1. THE PROTECTED ROUTE COMPONENT (The Bouncer) ---
-const ProtectedRoute = ({ children, allowedRole }) => {
-  const { user, loading, isAuthenticated } = useAuth();
+// Components
+import Chatbot from './components/Chatbot';
+import SidebarLayout from './components/SidebarLayout';
 
-  if (loading) return <div>Loading...</div>;
-
-  if (!isAuthenticated) {
-    return <Navigate to="/login" replace />;
-  }
-
-  if (allowedRole && user?.role !== allowedRole) {
-    return <Navigate to="/" replace />;
-  }
-
-  return children;
-};
-
-// --- 2. THE NAVBAR COMPONENT ---
+// --- THE NAVBAR COMPONENT ---
 const Navbar = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const [user, setUser] = useState(null);
+  const { user, logout, isAuthenticated } = useAuth();
 
-  useEffect(() => {
-    const fetchUserData = async () => {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        setUser(null);
-        return;
-      }
-
-      try {
-        const decoded = jwtDecode(token);
-        const userId = decoded.id;
-
-        const response = await fetch(`http://localhost:3001/api/profile/${userId}`, {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          setUser(data);
-        }
-      } catch (error) {
-        console.error("Navbar Sync Error:", error);
-        setUser(null);
-      }
-    };
-
-    fetchUserData();
-  }, [location]);
+  // State and ref for the dropdown
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const dropdownRef = useRef(null);
 
   const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user'); // Also clear the user object
-    setUser(null);
+    setDropdownOpen(false); // Close dropdown on logout
+    logout();
     navigate('/');
   };
+
+  // Close dropdown if user clicks outside of it
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const isHomepage = location.pathname === '/';
 
   return (
-    <nav className="navbar">
-      <div className="container">
-        <Link to="/" className="logo">
-          <span className="edu">Edu</span><span className="connect">Connect</span>
+    <nav className="navbar" style={{
+      display: 'grid',
+      gridTemplateColumns: '1fr auto 1fr',
+      alignItems: 'center',
+      padding: '1rem 2rem',
+      background: '#fff',
+      boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+      position: 'relative',
+      zIndex: 50 // Increased z-index to ensure dropdown renders over everything
+    }}>
+
+      {/* 1. Left Section (Logo) */}
+      <div className="nav-left" style={{ textAlign: 'left' }}>
+        <Link to="/" style={{ fontSize: '1.5rem', fontWeight: 'bold', textDecoration: 'none' }}>
+          <span style={{ color: '#1976d2' }}>Edu</span><span style={{ color: '#27ae60' }}>Connect</span>
         </Link>
-        <ul className="nav-links">
-          <li><Link to="/">Home</Link></li>
-          {/* DYNAMIC DASHBOARD LINK: Directs based on role */}
-          <li>
-            <Link to={user?.role === 'instructor' ? "/instructor-dashboard" : "/dashboard"}>
-              Dashboard
-            </Link>
-          </li>
-          <li><Link to="/profile">Profile</Link></li>
+      </div>
+
+      {/* 2. Center Section (Home & Dashboard Links) */}
+      <div className="nav-center" style={{ textAlign: 'center' }}>
+        <ul style={{ display: 'inline-flex', listStyle: 'none', gap: '20px', margin: 0, padding: 0 }}>
+          <li><Link to="/" style={{ textDecoration: 'none', color: '#333' }}>Home</Link></li>
+          {/* Only show Dashboard if logged in (Profile moved to dropdown) */}
+          {isAuthenticated && user && (
+            <li>
+              <Link
+                to={user.role === 'instructor' ? "/instructor-dashboard" : "/dashboard"}
+                style={{ textDecoration: 'none', color: '#333' }}
+              >
+                My Courses
+              </Link>
+            </li>
+          )}
         </ul>
+      </div>
 
-        <div className="nav-actions">
-          {user ? (
-            <div className="user-logged-in">
-              <span className="user-name">Hi, {user.fullName || "User"}</span>
-              <button onClick={handleLogout} className="btn-logout">Logout</button>
-            </div>
-          ) : (
-            isHomepage && (
-              <div className="nav-buttons">
-                <button
-                  onClick={() => navigate('/login', { state: { role: 'student' } })}
-                  className="btn-login"
-                  style={{ backgroundColor: '#1976d2', color: 'white', border: 'none' }}
-                >
-                  Login as Student
-                </button>
+      {/* 3. Right Section (Dropdown & Login) */}
+      <div className="nav-right" style={{ display: 'flex', justifyContent: 'flex-end' }}>
+        {isAuthenticated && user ? (
+          // USER PROFILE DROPDOWN
+          <div style={{ position: 'relative' }} ref={dropdownRef}>
+            <button
+              onClick={() => setDropdownOpen(!dropdownOpen)}
+              style={{
+                background: 'none',
+                border: 'none',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                cursor: 'pointer',
+                padding: '5px 10px',
+                borderRadius: '6px',
+                transition: 'background 0.2s'
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f5f6fa'}
+              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+            >
+              <span style={{ fontWeight: '500', color: '#333', fontSize: '1rem' }}>
+                {user.fullName || user.name}
+              </span>
+              <span style={{ fontSize: '0.8rem', color: '#7f8c8d' }}>
+                {dropdownOpen ? '▲' : '▼'}
+              </span>
+            </button>
 
-                <button
-                  onClick={() => navigate('/login', { state: { role: 'instructor' } })}
-                  className="btn-signup"
-                  style={{ backgroundColor: '#27ae60' }}
+            {/* DROPDOWN MENU */}
+            {dropdownOpen && (
+              <div style={{
+                position: 'absolute',
+                top: '100%',
+                right: 0,
+                marginTop: '10px',
+                backgroundColor: '#fff',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                borderRadius: '8px',
+                width: '160px',
+                overflow: 'hidden',
+                zIndex: 100
+              }}>
+                <Link
+                  to="/profile"
+                  onClick={() => setDropdownOpen(false)}
+                  style={{
+                    display: 'block',
+                    padding: '12px 16px',
+                    color: '#2c3e50',
+                    textDecoration: 'none',
+                    borderBottom: '1px solid #ecf0f1',
+                    fontSize: '0.95rem'
+                  }}
                 >
-                  Login as Instructor
+                  👤 Profile
+                </Link>
+                <button
+                  onClick={handleLogout}
+                  style={{
+                    display: 'block',
+                    width: '100%',
+                    textAlign: 'left',
+                    padding: '12px 16px',
+                    backgroundColor: 'transparent',
+                    border: 'none',
+                    color: '#e74c3c',
+                    cursor: 'pointer',
+                    fontSize: '0.95rem',
+                    fontWeight: '500'
+                  }}
+                >
+                  🚪 Logout
                 </button>
               </div>
-            )
-          )}
-        </div>
+            )}
+          </div>
+        ) : (
+          isHomepage && (
+            <button onClick={() => navigate('/login')} style={{ backgroundColor: '#1976d2', color: '#fff', border: 'none', padding: '0.5rem 1rem', cursor: 'pointer', borderRadius: '4px' }}>
+              Login
+            </button>
+          )
+        )}
       </div>
     </nav>
   );
 };
 
-// --- 3. THE MAIN APP COMPONENT ---
+const AppContent = () => {
+  const { isAuthenticated, user } = useAuth();
+  const showChatbot = isAuthenticated && user;
+
+  return (
+    <div className="app-container" style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+      <Navbar />
+
+      <main style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+        <Routes>
+          {/* ========================================== */}
+          {/* PUBLIC ROUTES (No Sidebar)                 */}
+          {/* ========================================== */}
+          <Route path="/" element={<Home />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password/:token" element={<ResetPassword />} />
+
+          {/* ========================================== */}
+          {/* PROTECTED ROUTES (With Sidebar)            */}
+          {/* ========================================== */}
+          <Route element={<SidebarLayout />}>
+
+            {/* Student Routes */}
+            <Route path="/dashboard" element={
+              <ProtectedRoute allowedRole="student"><Dashboard /></ProtectedRoute>
+            } />
+            <Route path="/courses" element={
+              <ProtectedRoute allowedRole="student"><BrowseCourses /></ProtectedRoute>
+            } />
+
+            {/* Instructor Routes */}
+            <Route path="/instructor-dashboard" element={
+              <ProtectedRoute allowedRole="instructor"><InstructorDashboard /></ProtectedRoute>
+            } />
+            <Route path="/new-course" element={
+              <ProtectedRoute allowedRole="instructor"><NewCourse /></ProtectedRoute>
+            } />
+            <Route path="/course/edit/:id" element={
+              <ProtectedRoute allowedRole="instructor"><EditCourse /></ProtectedRoute>
+            } />
+            <Route path="/course/:id/quizzes/new" element={
+              <ProtectedRoute allowedRole="instructor"><CreateQuiz /></ProtectedRoute>
+            } />
+
+            {/* General Protected Routes */}
+            <Route path="/courses/:id" element={
+              <ProtectedRoute><CoursePage /></ProtectedRoute>
+            } />
+            <Route path="/profile" element={
+              <ProtectedRoute><Profile /></ProtectedRoute>
+            } />
+            <Route path="/courses/:id/subtopic/:subtopicId" element={
+              <ProtectedRoute><SubtopicPage /></ProtectedRoute>
+            } />
+            <Route path="/courses/:id/quiz/:quizId" element={
+              <ProtectedRoute><TakeQuiz /></ProtectedRoute>
+            } />
+          </Route>
+
+          {/* Fallback */}
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </main>
+
+      {showChatbot && <Chatbot />}
+    </div>
+  );
+};
+
+// --- MAIN APP ---
 function App() {
   return (
     <Router>
-      <div className="app-container">
-        <Navbar />
-        <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/login" element={<Login />} />
-
-          {/* Student Only */}
-          <Route path="/dashboard" element={
-            <ProtectedRoute allowedRole="student">
-              <Dashboard />
-            </ProtectedRoute>
-          } />
-
-          {/* Instructor Only */}
-          <Route path="/instructor-dashboard" element={
-            <ProtectedRoute allowedRole="instructor">
-              <InstructorDashboard />
-            </ProtectedRoute>
-          } />
-
-          {/* Any logged-in user */}
-          <Route path="/profile" element={
-            <ProtectedRoute>
-              <Profile />
-            </ProtectedRoute>
-          } />
-        </Routes>
-        <Chatbot />
-      </div>
+      <AppContent />
     </Router>
   );
 }

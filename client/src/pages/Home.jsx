@@ -5,7 +5,7 @@ import '../styles/style.css';
 const Home = () => {
     // You don't need navigate here for the login buttons anymore, 
     // but you might want it later for the "Action Cards"
-    const navigate = useNavigate(); 
+    const navigate = useNavigate();
 
     return (
         <div className="home-page">
@@ -22,7 +22,9 @@ const Home = () => {
 
             <section className="action-section">
                 <div className="card-container">
-                    <div className="action-card"><h3>📚 Browse Courses</h3></div>
+                    <div className="action-card" onClick={() => navigate('/courses')}
+                        style={{ cursor: 'pointer' }}>
+                        <h3>📚 Browse Courses</h3></div>
                     <div className="action-card"><h3>💻 Join a Class</h3></div>
                     <div className="action-card"><h3>📋 Take a Quiz</h3></div>
                     <div className="action-card"><h3>🎧 Get Support</h3></div>
