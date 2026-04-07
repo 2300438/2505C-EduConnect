@@ -17,7 +17,7 @@ const InstructorDashboard = () => {
   const [pendingEnrollments, setPendingEnrollments] = useState([]);
   const [pendingLoading, setPendingLoading] = useState(false);
 
-  // --- NEW: Grading State ---
+  // Grading State
   const [pendingGrades, setPendingGrades] = useState([]);
   const [gradesLoading, setGradesLoading] = useState(true);
   const [selectedSub, setSelectedSub] = useState(null);
@@ -48,12 +48,10 @@ const InstructorDashboard = () => {
       }
     };
 
-    // Fetch the courses and the pending grades on mount
     fetchMyCourses();
     fetchPendingGrades();
   }, []);
 
-  // --- NEW: Fetch Pending Grades ---
   const fetchPendingGrades = async () => {
     try {
       setGradesLoading(true);
@@ -96,13 +94,13 @@ const InstructorDashboard = () => {
       const response = await api.put(`/courses/enrollments/${enrollmentId}/approve`);
       if (response.status === 200 || response.data?.success) {
         setPendingEnrollments((prev) => prev.filter((item) => item.id !== enrollmentId));
+        // Refresh courses to update the student count!
+        const courseRes = await api.get('/courses/instructor/me');
+        setCourses(Array.isArray(courseRes.data) ? courseRes.data : courseRes.data.courses || []);
       }
     } catch (error) {
       console.error('Approve catch block:', error);
       setPendingEnrollments((prev) => prev.filter((item) => item.id !== enrollmentId));
-      if (error.response?.status !== 200) {
-        alert('Could not confirm approval with server, but UI has been updated.');
-      }
     }
   };
 
@@ -115,13 +113,11 @@ const InstructorDashboard = () => {
     }
   };
 
-  // --- NEW: Open Grading Modal ---
   const openGradingModal = (submission) => {
     setSelectedSub(submission);
     setManualScore(0);
   };
 
-  // --- NEW: Submit the Grade ---
   const handleSaveGrade = async () => {
     setSavingGrade(true);
     try {
@@ -173,10 +169,7 @@ const InstructorDashboard = () => {
                 <div className="course-card" key={course.id}>
                   <div className="course-icon">
                     {course.thumbnail ? (
-                      <img
-                        src={getThumbnailSrc(course.thumbnail)}
-                        alt={course.title || 'Course thumbnail'}
-                      />
+                      <img src={getThumbnailSrc(course.thumbnail)} alt={course.title || 'Course thumbnail'} />
                     ) : (
                       '📚'
                     )}
@@ -184,12 +177,21 @@ const InstructorDashboard = () => {
 
                   <h4>{course.title || 'Untitled Course'}</h4>
 
-                  <div style={{
-                    fontSize: '12px', color: '#27ae60', backgroundColor: '#eafaf1',
-                    padding: '4px 10px', borderRadius: '20px', display: 'inline-block',
-                    fontWeight: '600', marginBottom: '10px'
-                  }}>
-                    👥 {course.studentCount || 0} Students
+                  {/* FIX: Clickable Student Count */}
+                  <div 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate(`/courses/${course.id}`, { state: { activeTab: 'students' } });
+                    }}
+                    style={{
+                      fontSize: '12px', color: '#27ae60', backgroundColor: '#eafaf1',
+                      padding: '4px 10px', borderRadius: '20px', display: 'inline-block',
+                      fontWeight: '600', marginBottom: '10px', cursor: 'pointer',
+                      border: '1px solid #27ae60'
+                    }}
+                    title="Click to manage all students"
+                  >
+                    👥 {course.students?.filter(s => s.Enrollment?.status === 'approved').length || 0} Students
                   </div>
 
                   <p style={{ fontSize: '13px', color: '#666' }}>
@@ -237,7 +239,7 @@ const InstructorDashboard = () => {
         )}
       </section>
 
-      {/* --- NEW: NEEDS GRADING SECTION --- */}
+      {/* --- NEEDS GRADING SECTION --- */}
       <section className="needs-grading-section" style={{ marginTop: '40px' }}>
         <h3 style={{ borderBottom: '2px solid #ecf0f1', paddingBottom: '10px', marginBottom: '20px' }}>
           Assessments Needing Review
@@ -258,7 +260,7 @@ const InstructorDashboard = () => {
                 <div>
                   <h4 style={{ margin: '0 0 5px 0', color: '#333' }}>{sub.quiz?.title || 'Quiz'}</h4>
                   <p style={{ fontSize: '13px', color: '#666', margin: '0 0 8px 0' }}>
-                    <strong>Student:</strong> {sub.user?.fullName} | <strong>Course:</strong> {sub.quiz?.course?.title}
+                    <strong>Student:</strong> {sub.student?.fullName} | <strong>Course:</strong> {sub.quiz?.course?.title}
                   </p>
                   <span style={{ fontSize: '12px', background: '#fff3e0', color: '#e67e22', padding: '4px 8px', borderRadius: '4px', fontWeight: 'bold' }}>
                     Auto-Graded Score: {sub.autoScore} points
@@ -277,7 +279,7 @@ const InstructorDashboard = () => {
         )}
       </section>
 
-      {/* --- NEW: GRADING MODAL OVERLAY --- */}
+      {/* --- GRADING MODAL OVERLAY --- */}
       {selectedSub && (
         <div style={{
           position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
@@ -290,12 +292,11 @@ const InstructorDashboard = () => {
             boxShadow: '0 10px 25px rgba(0,0,0,0.2)'
           }}>
             <h2 style={{ borderBottom: '1px solid #eee', paddingBottom: '15px', marginTop: 0 }}>
-              Grading: {selectedSub.user?.fullName}'s Submission
+              Grading: {selectedSub.student?.fullName}'s Submission
             </h2>
 
             <p style={{ color: '#1976d2', fontWeight: 'bold' }}>Review Long-Answer Responses</p>
 
-            {/* Render only LONG questions that need grading */}
             {selectedSub.quiz?.questions?.filter(q => q.type === 'LONG').map((q, index) => (
               <div key={q.id} style={{ background: '#f8f9fa', padding: '20px', borderRadius: '8px', marginBottom: '20px' }}>
                 <p style={{ fontWeight: 'bold', margin: '0 0 10px 0' }}>Q{index + 1}: {q.text}</p>
@@ -328,7 +329,6 @@ const InstructorDashboard = () => {
           </div>
         </div>
       )}
-
     </main>
   );
 };

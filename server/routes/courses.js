@@ -1,9 +1,12 @@
 const express = require("express");
 const yup = require("yup");
 const multer = require("multer");
+const jwt = require("jsonwebtoken"); // NEW: Added to decode tokens safely for course viewing
 const { put } = require("@vercel/blob");
 const upload = multer({ storage: multer.memoryStorage() });
-const { Course, User, Topic, Subtopic, Enrollment, Progress, Quiz, Question, DiscussionBoard } = require("../models");
+
+// NEW: Make sure QuizSubmission is destructured here!
+const { Course, User, Topic, Subtopic, Enrollment, Progress, Quiz, Question, Discussion, QuizSubmission, DiscussionBoard } = require("../models");
 const validateToken = require("../middleware/validateToken");
 
 const router = express.Router();
@@ -17,14 +20,12 @@ const courseSchema = yup.object({
   topics: yup.array().of(
     yup.object({
       title: yup.string().trim().required("Topic title is required"),
-
       subtopics: yup.array().of(
         yup.object({
           title: yup.string().trim().required("Subtopic title is required"),
           fileUrl: yup.string().trim().url("Must be a valid URL").nullable()
         })
       ).nullable()
-
     })
   ).min(1, "A course must have at least one topic").required()
 });
@@ -50,11 +51,11 @@ router.get("/", async (req, res) => {
 });
 
 // --- GET INSTRUCTOR'S COURSES ---
-// IMPORTANT: keep this above "/:id"
 router.get("/instructor/me", validateToken, async (req, res) => {
   try {
     const courses = await Course.findAll({
       where: { instructorId: req.user.id },
+      include: [{ model: User, as: "students" }], // <--- ADD THIS LINE TO FIX THE 0 COUNT
       order: [["createdAt", "DESC"]],
     });
     res.json(courses);
@@ -66,6 +67,16 @@ router.get("/instructor/me", validateToken, async (req, res) => {
 // --- GET SINGLE COURSE ---
 router.get("/:id", async (req, res) => {
   try {
+    // We manually extract the token so unauthenticated users can still view the syllabus!
+    let studentId = null;
+    if (req.headers.authorization && req.headers.authorization.startsWith("Bearer ")) {
+      try {
+        const token = req.headers.authorization.split(" ")[1];
+        const decoded = jwt.verify(token, process.env.JWT_SECRET || "your_jwt_secret"); // Replace with your env variable if different
+        studentId = decoded.id;
+      } catch (e) { /* ignore invalid token */ }
+    }
+
     const course = await Course.findByPk(req.params.id, {
       include: [
         {
@@ -100,12 +111,32 @@ router.get("/:id", async (req, res) => {
       return res.status(404).json({ message: "Course not found." });
     }
 
-    res.json(course);
+    const courseData = course.toJSON();
+
+    // NEW: If a student is logged in, grab their highest score for each quiz
+    if (studentId) {
+      for (let quiz of courseData.quizzes) {
+        const submissions = await QuizSubmission.findAll({
+          where: { userId: studentId, quizId: quiz.id }
+        });
+
+        if (submissions && submissions.length > 0) {
+          // Calculate total score (auto + manual) and find the max
+          const highest = Math.max(
+            ...submissions.map(sub => (sub.autoScore || 0) + (sub.manualScore || 0))
+          );
+          quiz.highestScore = highest; // Attach it to the quiz object
+        }
+      }
+    }
+
+    res.json(courseData);
   } catch (error) {
     console.error("Fetch single course error:", error);
     res.status(500).json({ message: "Failed to fetch course." });
   }
 });
+
 // --- POST: CREATE NEW COURSE ---
 router.post("/", validateToken, upload.any(), async (req, res) => {
   try {
@@ -471,7 +502,6 @@ router.post("/:courseId/enroll", validateToken, async (req, res) => {
   }
 });
 
-
 // INSTRUCTOR: GET PENDING ENROLLMENTS
 router.get("/:courseId/pending-enrollments", validateToken, async (req, res) => {
   try {
@@ -727,11 +757,14 @@ router.post("/:courseId/quizzes", validateToken, async (req, res) => {
     res.status(500).json({ message: "Failed to create quiz." });
   }
 });
-// 1. STUDENT GET QUIZ (Hides answers and password)
+
+
+// --- GET SINGLE QUIZ (SMART ROUTE: Fixes the duplicate route bug) ---
 router.get("/:courseId/quizzes/:quizId", validateToken, async (req, res) => {
   try {
+    const { courseId, quizId } = req.params;
     const quiz = await Quiz.findOne({
-      where: { id: req.params.quizId, courseId: req.params.courseId },
+      where: { id: quizId || req.params.quizId, courseId: courseId || req.params.courseId },
       include: [{
         model: Question,
         as: "questions",
@@ -742,18 +775,29 @@ router.get("/:courseId/quizzes/:quizId", validateToken, async (req, res) => {
 
     if (!quiz) return res.status(404).json({ message: "Quiz not found" });
 
-    // Send the quiz data, but strip the actual password string for security
-    res.json({
-      id: quiz.id,
-      title: quiz.title,
-      description: quiz.description,
-      requiresPassword: quiz.requiresPassword,
-      questions: quiz.questions
-    });
+    const quizData = quiz.toJSON();
+
+    // SECURITY CHECK: If the user is a student, we hide the sensitive data!
+    if (req.user.role === 'student') {
+      quizData.password = quizData.requiresPassword ? "hidden" : null;
+      
+      quizData.questions = quizData.questions.map(q => ({
+        id: q.id,
+        text: q.text,
+        type: q.type,
+        options: q.options
+        // Notice we do NOT map q.correctAnswer here!
+      }));
+    }
+
+    // If it's an instructor, they receive the full quizData including correctAnswers so they can edit it.
+    res.json(quizData);
   } catch (error) {
+    console.error("Error fetching quiz:", error);
     res.status(500).json({ message: "Failed to fetch quiz." });
   }
 });
+
 
 // 2. VERIFY PASSWORD
 router.post("/:courseId/quizzes/:quizId/verify-password", validateToken, async (req, res) => {
@@ -764,7 +808,6 @@ router.post("/:courseId/quizzes/:quizId/verify-password", validateToken, async (
     if (!quiz) return res.status(404).json({ message: "Quiz not found" });
     if (!quiz.requiresPassword) return res.status(200).json({ success: true });
 
-    // In a real app, you'd use bcrypt here. For now, strict equality based on your DB.
     if (quiz.password === password) {
       return res.status(200).json({ success: true });
     } else {
@@ -775,45 +818,59 @@ router.post("/:courseId/quizzes/:quizId/verify-password", validateToken, async (
   }
 });
 
-// 3. GRADE SUBMISSION
+// 3. GRADE SUBMISSION (NEW: Saves to QuizSubmission Model)
 router.post("/:courseId/quizzes/:quizId/submit", validateToken, async (req, res) => {
   try {
-    const { answers } = req.body; // Looks like { "questionId_1": "0", "questionId_2": "apple" }
+    const { answers } = req.body; 
+    const studentId = req.user.id;
 
     // Fetch questions WITH the correct answers so we can grade them
     const questions = await Question.findAll({ where: { quizId: req.params.quizId } });
 
-    let score = 0;
+    let correctCount = 0;
     let autoGradableCount = 0;
-    let pendingManualGrade = false;
+    let requiresManual = false;
 
     questions.forEach((q) => {
+      // Find the answer the student submitted for this specific question ID
       const studentAnswer = answers[q.id];
 
       if (q.type === 'MCQ') {
         autoGradableCount++;
-        if (studentAnswer === q.correctAnswer) score++;
-      }
+        if (studentAnswer === q.correctAnswer) correctCount++;
+      } 
       else if (q.type === 'SHORT') {
         autoGradableCount++;
-        // Case insensitive grading, trimmed whitespace
         if (studentAnswer?.trim().toLowerCase() === q.correctAnswer?.trim().toLowerCase()) {
-          score++;
+          correctCount++;
         }
       }
       else if (q.type === 'LONG') {
-        pendingManualGrade = true; // Cannot auto-grade essays
+        requiresManual = true; // Cannot auto-grade essays
       }
     });
 
-    // NOTE: In a full production app, you would save this score to a 'QuizSubmissions' table here!
+    // Calculate percentage out of 100
+    const autoScore = autoGradableCount > 0 ? Math.round((correctCount / autoGradableCount) * 100) : 0;
+
+    // CREATE THE RECORD USING YOUR MODEL
+    await QuizSubmission.create({
+      userId: studentId, 
+      quizId: req.params.quizId,    
+      answers: answers,
+      autoScore: autoScore,
+      manualScore: 0,
+      needsManualGrading: requiresManual,
+      isGraded: !requiresManual // If there are no long answers, it is fully graded!
+    });
 
     res.json({
-      score,
-      total: autoGradableCount,
-      message: pendingManualGrade ? "Your short/multiple choice answers have been graded. Essays are pending review by your instructor." : "Quiz graded successfully!"
+      score: autoScore,
+      total: 100, // Normalized to 100%
+      message: requiresManual ? "Your short/multiple choice answers have been graded. Essays are pending review by your instructor." : "Quiz graded successfully!"
     });
   } catch (error) {
+    console.error("Submit error:", error);
     res.status(500).json({ message: "Failed to grade submission." });
   }
 });
@@ -827,18 +884,22 @@ router.get("/instructor/pending-grading", validateToken, async (req, res) => {
         isGraded: false
       },
       include: [
-        { model: User, as: "user", attributes: ["id", "fullName", "email"] },
-        {
-          model: Quiz,
+        // FIX: Changed alias from "user" to "student" to match your index.js exactly!
+        { model: User, as: "student", attributes: ["id", "fullName", "email"] }, 
+        { 
+          model: Quiz, 
           as: "quiz",
-          // Verify this instructor owns the course the quiz belongs to
-          include: [{ model: Course, as: "course", where: { instructorId: req.user.id } }, { model: Question, as: "questions" }]
+          include: [
+            { model: Course, as: "course", where: { instructorId: req.user.id } }, 
+            { model: Question, as: "questions" }
+          ]
         }
       ],
       order: [["createdAt", "ASC"]]
     });
     res.json(submissions);
   } catch (error) {
+    console.error("Pending grading fetch error:", error); // Added a console.log to help if anything else breaks
     res.status(500).json({ message: "Failed to fetch pending grades." });
   }
 });
@@ -861,24 +922,6 @@ router.put("/instructor/grade-submission/:id", validateToken, async (req, res) =
   } catch (error) {
     res.status(500).json({ message: "Failed to save grade." });
   }
-});
-
-// GET a specific quiz for editing
-router.get('/:courseId/quizzes/:quizId', async (req, res) => {
-    try {
-        const { courseId, quizId } = req.params;
-        
-        const quiz = await Quiz.findOne({
-            where: { id: quizId, courseId: courseId }
-        });
-
-        if (!quiz) return res.status(404).json({ message: "Quiz not found." });
-        
-        res.json(quiz);
-    } catch (error) {
-        console.error("Error fetching quiz:", error);
-        res.status(500).json({ message: "Internal server error while fetching quiz." });
-    }
 });
 
 // PUT (Update) a specific quiz
@@ -907,6 +950,100 @@ router.put('/:courseId/quizzes/:quizId', async (req, res) => {
         console.error("Error updating quiz:", error);
         res.status(500).json({ message: "Internal server error while updating quiz." });
     }
+});
+
+// INSTRUCTOR: GET ALL GRADES FOR A COURSE
+router.get("/:courseId/grades", validateToken, async (req, res) => {
+  try {
+    const { courseId } = req.params;
+
+    // 1. Verify ownership
+    const course = await Course.findByPk(courseId);
+    if (!course) return res.status(404).json({ message: "Course not found." });
+    if (course.instructorId !== req.user.id) return res.status(403).json({ message: "Not authorized." });
+
+    // 2. Get all quizzes for this course
+    const quizzes = await Quiz.findAll({ where: { courseId }, attributes: ['id', 'title'] });
+    const quizIds = quizzes.map(q => q.id);
+
+    if (quizIds.length === 0) return res.json([]); // No quizzes yet
+
+    // 3. Get all submissions for these quizzes
+    const submissions = await QuizSubmission.findAll({
+      where: { quizId: quizIds },
+      include: [
+        { model: User, as: "student", attributes: ["id", "fullName", "email"] },
+        { model: Quiz, as: "quiz", attributes: ["id", "title"] }
+      ],
+      order: [['createdAt', 'DESC']]
+    });
+
+    res.json(submissions);
+  } catch (error) {
+    console.error("Fetch grades error:", error);
+    res.status(500).json({ message: "Failed to fetch grades." });
+  }
+});
+
+// INSTRUCTOR: DELETE A STUDENT'S QUIZ SUBMISSION
+router.delete("/submissions/:submissionId", validateToken, async (req, res) => {
+  try {
+    const { submissionId } = req.params;
+    
+    // Find the submission and include course data to verify the instructor owns it
+    const submission = await QuizSubmission.findByPk(submissionId, {
+      include: [{
+        model: Quiz,
+        as: "quiz",
+        include: [{ model: Course, as: "course" }]
+      }]
+    });
+
+    if (!submission) return res.status(404).json({ message: "Submission not found." });
+    
+    // Verify the user deleting it is the instructor of the course
+    if (submission.quiz.course.instructorId !== req.user.id) {
+      return res.status(403).json({ message: "Not authorized to delete this grade." });
+    }
+
+    // Delete the record
+    await submission.destroy();
+    res.json({ success: true, message: "Result deleted successfully." });
+
+  } catch (error) {
+    console.error("Delete submission error:", error);
+    res.status(500).json({ message: "Failed to delete submission." });
+  }
+});
+
+// INSTRUCTOR: GET ALL ENROLLMENTS (Pending & Approved)
+router.get("/:courseId/all-enrollments", validateToken, async (req, res) => {
+  try {
+    const { courseId } = req.params;
+    const course = await Course.findByPk(courseId);
+    if (!course || course.instructorId !== req.user.id) return res.status(403).json({ message: "Not authorized." });
+
+    const enrollments = await Enrollment.findAll({
+      where: { courseId },
+      include: [{ model: User, as: "user", attributes: ["id", "fullName", "email"] }]
+    });
+    res.json(enrollments);
+  } catch (error) {
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// INSTRUCTOR: REMOVE APPROVED STUDENT
+router.delete("/enrollments/:id/remove", validateToken, async (req, res) => {
+  try {
+    const enrollment = await Enrollment.findByPk(req.params.id, { include: [{ model: Course, as: "course" }] });
+    if (!enrollment || enrollment.course.instructorId !== req.user.id) return res.status(403).json({ message: "Not authorized." });
+
+    await enrollment.destroy();
+    res.json({ success: true, message: "Student removed." });
+  } catch (error) {
+    res.status(500).json({ message: "Server error" });
+  }
 });
 
 module.exports = router;

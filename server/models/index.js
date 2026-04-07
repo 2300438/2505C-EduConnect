@@ -58,11 +58,12 @@ Quiz.belongsTo(Course, { as: "course", foreignKey: "courseId" });
 Quiz.hasMany(Question, { as: "questions", foreignKey: "quizId", onDelete: "CASCADE" });
 Question.belongsTo(Quiz, { as: "quiz", foreignKey: "quizId" });
 
-Quiz.hasMany(QuizSubmission, { foreignKey: "quizId", onDelete: "CASCADE" });
-QuizSubmission.belongsTo(Quiz, { foreignKey: "quizId" });
+// --- QUIZ SUBMISSION ASSOCIATIONS (Merged & Fixed) ---
+Quiz.hasMany(QuizSubmission, { foreignKey: "quizId", onDelete: 'CASCADE' });
+QuizSubmission.belongsTo(Quiz, { foreignKey: "quizId", as: "quiz" });
 
-User.hasMany(QuizSubmission, { foreignKey: "userId", onDelete: "CASCADE" });
-QuizSubmission.belongsTo(User, { foreignKey: "userId" });
+User.hasMany(QuizSubmission, { foreignKey: "userId", onDelete: 'CASCADE' });
+QuizSubmission.belongsTo(User, { foreignKey: "userId", as: "student" });
 
 // --- DISCUSSION BOARD ASSOCIATIONS ---
 // 1. Course <-> Discussion Board
@@ -77,6 +78,7 @@ DiscussionPost.belongsTo(DiscussionBoard, { as: "board", foreignKey: "boardId" }
 User.hasMany(DiscussionPost, { as: "posts", foreignKey: "userId", onDelete: "CASCADE" });
 DiscussionPost.belongsTo(User, { as: "author", foreignKey: "userId" });
 
+// --- EXPORTS (Merged) ---
 module.exports = {
   sequelize,
   User,
