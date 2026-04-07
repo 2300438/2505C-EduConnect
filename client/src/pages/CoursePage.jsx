@@ -183,18 +183,35 @@ const CoursePage = () => {
           </section>
         );
      case 'discussion':
-        const discussions = course?.discussions || [];
-
-        return (
-          <section className="course-discussions" style={{ animation: 'fadeIn 0.3s ease-in-out', background: '#fff', padding: '30px', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
-            <h3 style={{ color: '#2c3e50', marginBottom: '15px' }}>Discussion Board</h3>
-            <div style={{ padding: '40px', textAlign: 'center', backgroundColor: '#f8f9fa', borderRadius: '8px', color: '#7f8c8d' }}>
-              <span style={{ fontSize: '2.5rem', display: 'block', marginBottom: '10px' }}>💬</span>
-              <p>The discussion board will open once the course begins.</p>
-              {/* Future feature: Add an input box here for students to post questions */}
+  const discussions = course?.discussions || [];
+  return (
+    <section className="course-discussions" style={{ animation: 'fadeIn 0.3s ease-in-out', background: '#fff', padding: '30px', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
+      <h3 style={{ color: '#2c3e50', marginBottom: '20px' }}>Discussion Boards</h3>
+      
+      {discussions.length === 0 ? (
+        <div style={{ padding: '40px', textAlign: 'center', backgroundColor: '#f8f9fa', borderRadius: '8px', color: '#7f8c8d' }}>
+          <p>No discussion boards have been created for this course yet.</p>
+        </div>
+      ) : (
+        <div style={{ display: 'grid', gap: '15px' }}>
+          {discussions.map((disc) => (
+            <div key={disc.id} style={{ background: '#f8f9fa', padding: '20px', borderRadius: '8px', border: '1px solid #ecf0f1', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <h4 style={{ margin: '0 0 5px 0', color: '#2c3e50' }}>{disc.title}</h4>
+                <p style={{ margin: 0, color: '#7f8c8d', fontSize: '0.9rem' }}>{disc.prompt?.substring(0, 100)}...</p>
+              </div>
+              <button
+                onClick={() => navigate(`/courses/${id}/discussion/${disc.id}`)}
+                style={{ padding: '10px 20px', backgroundColor: '#2ecc71', color: 'white', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}
+              >
+                Join Discussion
+              </button>
             </div>
-          </section>
-        );
+          ))}
+        </div>
+      )}
+    </section>
+  );
       case 'students':
         const filtered = enrollments.filter(e =>
           e.user?.fullName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
