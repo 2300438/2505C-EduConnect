@@ -211,7 +211,7 @@ const AppContent = () => {
               <ProtectedRoute allowedRole="student"><Dashboard /></ProtectedRoute>
             } />
             <Route path="/courses" element={
-              <ProtectedRoute allowedRole="student"><BrowseCourses /></ProtectedRoute>
+              <ProtectedRoute><BrowseCourses /></ProtectedRoute>
             } />
 
             {/* Instructor Routes */}

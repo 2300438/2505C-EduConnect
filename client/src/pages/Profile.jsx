@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
-import '../styles/dashboard.css'; // Added dashboard CSS for the sidebar
+import '../styles/dashboard.css';
 import '../styles/profile.css';
 
 const Profile = () => {
@@ -15,7 +15,7 @@ const Profile = () => {
         email: '',
         location: 'Singapore',
         bio: '',
-        modules: []
+        modules: [] // Will be populated with courses from the dashboard endpoint
     });
 
     const [loading, setLoading] = useState(true);
@@ -35,6 +35,7 @@ const Profile = () => {
                 setError('');
                 setSuccessMessage('');
 
+                // 1. Fetch Profile Data
                 let profileResponse;
                 try {
                     profileResponse = await api.get('/profile/me');
@@ -45,17 +46,23 @@ const Profile = () => {
 
                 const profile = profileResponse.data;
 
+                // 2. Fetch Enrolled Courses (Using the Dashboard logic)
                 let modules = [];
                 try {
-                    const modulesResponse = await api.get('/course/my-courses');
-                    const courseData = Array.isArray(modulesResponse.data)
-                        ? modulesResponse.data
-                        : modulesResponse.data.courses || [];
-
-                    modules = courseData.map((course) => ({
-                        id: course.courseCode || course.id,
-                        name: course.title || course.name || 'Untitled Course'
-                    }));
+                    if (user && user.id) {
+                        const response = await api.get(`/dashboard/student/${user.id}`);
+                        const enrollmentData = response.data.enrollments || [];
+                        
+                        // Filter for approved courses and map them to our modules array
+                        const approvedCourses = enrollmentData.filter(e => e.status === 'approved');
+                        modules = approvedCourses.map((enrollment) => {
+                            const courseDetails = enrollment.course || enrollment.Course || {};
+                            return {
+                                id: courseDetails.id || enrollment.courseId,
+                                name: courseDetails.title || 'Untitled Course'
+                            };
+                        });
+                    }
                 } catch (moduleError) {
                     console.error('Failed to fetch modules:', moduleError);
                 }
@@ -69,7 +76,7 @@ const Profile = () => {
                     email: profile.email || user?.email || '',
                     location: profile.location || 'Singapore',
                     bio: fetchedBio,
-                    modules
+                    modules 
                 });
 
                 // Initialize edit states
@@ -147,104 +154,104 @@ const Profile = () => {
     }
 
     return (
-            <main className="main-content">
-                <header className="dashboard-header">
-                    <h2>My Profile</h2>
-                    <p>Manage your account details and view your progress.</p>
-                </header>
+        <main className="main-content">
+            <header className="dashboard-header">
+                <h2>My Profile</h2>
+                <p>Manage your account details and view your progress.</p>
+            </header>
 
-                <div className="profile-container" style={{ marginTop: '20px' }}>
-                    <aside className="profile-sidebar">
-                        <div className="avatar-placeholder">
-                            {userData.name ? userData.name.charAt(0).toUpperCase() : 'U'}
-                        </div>
+            <div className="profile-container" style={{ marginTop: '20px' }}>
+                <aside className="profile-sidebar">
+                    <div className="avatar-placeholder">
+                        {userData.name ? userData.name.charAt(0).toUpperCase() : 'U'}
+                    </div>
 
-                        {/* TOGGLE BETWEEN TEXT AND INPUT FOR NAME */}
+                    {/* TOGGLE BETWEEN TEXT AND INPUT FOR NAME */}
+                    {isEditing ? (
+                        <input 
+                            type="text" 
+                            value={newName} 
+                            onChange={(e) => setNewName(e.target.value)}
+                            className="name-input"
+                            style={{ 
+                                fontSize: '1.2rem', 
+                                textAlign: 'center', 
+                                padding: '5px', 
+                                marginTop: '10px', 
+                                width: '90%',
+                                borderRadius: '6px',
+                                border: '1px solid #ccc'
+                            }}
+                        />
+                    ) : (
+                        <h2 className="user-name">{userData.name}</h2>
+                    )}
+
+                    <p className="user-role" style={{ textTransform: 'capitalize' }}>
+                        {userData.role}
+                    </p>
+
+                    <div className="contact-info">
+                        <p>📧 {userData.email}</p>
+                        <p>📍 {userData.location}</p>
+                    </div>
+
+                    <button
+                        className={`btn-edit-profile ${isEditing ? 'cancel-mode' : ''}`}
+                        onClick={handleEditToggle}
+                    >
+                        {isEditing ? 'Cancel' : 'Edit Profile'}
+                    </button>
+                </aside>
+
+                <section className="profile-content">
+                    {error && <p className="error-message">{error}</p>}
+                    {successMessage && <p className="success-message">{successMessage}</p>}
+
+                    <section className="profile-section">
+                        <h3>About Me</h3>
+
                         {isEditing ? (
-                            <input 
-                                type="text" 
-                                value={newName} 
-                                onChange={(e) => setNewName(e.target.value)}
-                                className="name-input"
-                                style={{ 
-                                    fontSize: '1.2rem', 
-                                    textAlign: 'center', 
-                                    padding: '5px', 
-                                    marginTop: '10px', 
-                                    width: '90%',
-                                    borderRadius: '6px',
-                                    border: '1px solid #ccc'
-                                }}
-                            />
+                            <div className="edit-bio-container">
+                                <textarea
+                                    className="bio-textarea"
+                                    value={newBio}
+                                    onChange={(e) => setNewBio(e.target.value)}
+                                    placeholder="Tell us about yourself..."
+                                />
+                                <button
+                                    className="btn-save"
+                                    onClick={handleSaveProfile}
+                                >
+                                    Save Changes
+                                </button>
+                            </div>
                         ) : (
-                            <h2 className="user-name">{userData.name}</h2>
-                        )}
-
-                        <p className="user-role" style={{ textTransform: 'capitalize' }}>
-                            {userData.role}
-                        </p>
-
-                        <div className="contact-info">
-                            <p>📧 {userData.email}</p>
-                            <p>📍 {userData.location}</p>
-                        </div>
-
-                        <button
-                            className={`btn-edit-profile ${isEditing ? 'cancel-mode' : ''}`}
-                            onClick={handleEditToggle}
-                        >
-                            {isEditing ? 'Cancel' : 'Edit Profile'}
-                        </button>
-                    </aside>
-
-                    <section className="profile-content">
-                        {error && <p className="error-message">{error}</p>}
-                        {successMessage && <p className="success-message">{successMessage}</p>}
-
-                        <section className="profile-section">
-                            <h3>About Me</h3>
-
-                            {isEditing ? (
-                                <div className="edit-bio-container">
-                                    <textarea
-                                        className="bio-textarea"
-                                        value={newBio}
-                                        onChange={(e) => setNewBio(e.target.value)}
-                                        placeholder="Tell us about yourself..."
-                                    />
-                                    <button
-                                        className="btn-save"
-                                        onClick={handleSaveProfile}
-                                    >
-                                        Save Changes
-                                    </button>
-                                </div>
-                            ) : (
-                                <p className="bio-text">{userData.bio}</p>
-                            )}
-                        </section>
-
-                        {/* ONLY SHOW MODULES FOR STUDENTS */}
-                        {userData.role === 'student' && (
-                            <section className="profile-section">
-                                <h3>Academic Modules</h3>
-
-                                {userData.modules.length > 0 ? (
-                                    <ul className="academic-list">
-                                        {userData.modules.map((mod) => (
-                                            <li key={mod.id}>
-                                                <strong>{mod.id}:</strong> {mod.name}
-                                            </li>
-                                        ))}
-                                    </ul>
-                                ) : (
-                                    <p>No modules enrolled yet.</p>
-                                )}
-                            </section>
+                            <p className="bio-text">{userData.bio}</p>
                         )}
                     </section>
-                </div>
-            </main>
+
+                    {/* ONLY SHOW MODULES FOR STUDENTS */}
+                    {userData.role === 'student' && (
+                        <section className="profile-section">
+                            <h3>Academic Modules</h3>
+
+                            {userData.modules.length > 0 ? (
+                                <ul className="academic-list">
+                                    {userData.modules.map((mod) => (
+                                        <li key={mod.id}>
+                                            <strong>Course ID {mod.id}:</strong> {mod.name}
+                                        </li>
+                                    ))}
+                                </ul>
+                            ) : (
+                                <p>No modules enrolled yet.</p>
+                            )}
+                        </section>
+                    )}
+                </section>
+            </div>
+        </main>
     );
 };
 
