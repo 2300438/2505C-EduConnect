@@ -82,7 +82,6 @@ app.post('/api/upload', async (req, res) => {
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 // 1. Add the protector to the route
-// 1. Add the protector to the route
 app.post('/api/chat', protect, async (req, res) => {
     try {
         const { message, history = [], page = "unknown", courseId = null } = req.body;
