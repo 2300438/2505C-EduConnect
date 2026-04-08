@@ -94,7 +94,7 @@ const SubtopicPage = () => {
 
             <div style={{ flex: 1, border: '1px solid #ddd', borderRadius: '8px', overflow: 'hidden', height: '75vh' }}>
                 {pdfObjectUrl ? (
-                    <Worker workerUrl="https://unpkg.com/pdfjs-dist@3.4.120/build/pdf.worker.min.js">
+                    <Worker workerUrl="https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js">
                         <Viewer
                             fileUrl={pdfObjectUrl}
                             plugins={[defaultLayoutPluginInstance]}

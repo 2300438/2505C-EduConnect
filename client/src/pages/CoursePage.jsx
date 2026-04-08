@@ -1,11 +1,12 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
 
 const CoursePage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
 
   const [course, setCourse] = useState(null);
@@ -13,10 +14,22 @@ const CoursePage = () => {
   const [error, setError] = useState('');
   const [topics, setTopics] = useState([]);
   const [enrollmentStatus, setEnrollmentStatus] = useState(null);
-
+  const [myProgress, setMyProgress] = useState(0);
   const [activeTab, setActiveTab] = useState(location.state?.activeTab || 'content'); // 'content', 'library', 'assessment', or 'discussion'
   const [selectedTopicId, setSelectedTopicId] = useState(null);
   const [librarySearch, setLibrarySearch] = useState('');
+
+  const [viewingResults, setViewingResults] = useState(null);
+  const [viewingQuiz, setViewingQuiz] = useState(null);
+  const [pendingGrades, setPendingGrades] = useState([]);
+  const [gradesLoading, setGradesLoading] = useState(false);
+  const [selectedSub, setSelectedSub] = useState(null);
+  const [manualScore, setManualScore] = useState(0);
+  const [savingGrade, setSavingGrade] = useState(false);
+
+  const [enrollments, setEnrollments] = useState([]);
+  const [enrollmentsLoading, setEnrollmentsLoading] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     const fetchCourseData = async () => {
@@ -33,6 +46,11 @@ const CoursePage = () => {
           const enrollRes = await api.get(`/courses/${id}/my-enrollment`);
           currentStatus = enrollRes.data?.status || null;
           setEnrollmentStatus(currentStatus);
+
+          if (currentStatus === 'approved') {
+            const progressRes = await api.get(`/courses/${id}/my-progress`);
+            setMyProgress(progressRes.data?.progressPercent || 0);
+          }
         }
 
         // 3. Fetch topics only for instructor or approved student
@@ -94,52 +112,130 @@ const CoursePage = () => {
 
   const getFileType = (url) => {
     if (!url) return 'PAGE';
-
     const lowerUrl = url.toLowerCase();
-
     if (lowerUrl.endsWith('.pdf')) return 'PDF';
     if (lowerUrl.endsWith('.mp4')) return 'VIDEO';
     if (lowerUrl.endsWith('.doc') || lowerUrl.endsWith('.docx')) return 'DOC';
-
     return 'FILE';
   };
 
   const getFileBadgeStyle = (url) => {
     const fileType = getFileType(url);
-
-    if (fileType === 'PDF') {
-      return {
-        backgroundColor: '#fdecea',
-        color: '#c0392b',
-      };
-    }
-
-    if (fileType === 'VIDEO') {
-      return {
-        backgroundColor: '#eaf2fd',
-        color: '#2980b9',
-      };
-    }
-
-    if (fileType === 'DOC') {
-      return {
-        backgroundColor: '#eef6ff',
-        color: '#1f5fae',
-      };
-    }
-
-    if (fileType === 'FILE') {
-      return {
-        backgroundColor: '#eafaf1',
-        color: '#27ae60',
-      };
-    }
-
-    return {
-      backgroundColor: '#fdf2e9',
-      color: '#e67e22',
-    };
+    if (fileType === 'PDF') return { backgroundColor: '#fdecea', color: '#c0392b' };
+    if (fileType === 'VIDEO') return { backgroundColor: '#eaf2fd', color: '#2980b9' };
+    if (fileType === 'DOC') return { backgroundColor: '#eef6ff', color: '#1f5fae' };
+    if (fileType === 'FILE') return { backgroundColor: '#eafaf1', color: '#27ae60' };
+    return { backgroundColor: '#fdf2e9', color: '#e67e22' };
   };
+
+  // --- ENROLLMENT LOGIC (From Stash) ---
+  useEffect(() => {
+    if (activeTab === 'students' && user?.role === 'instructor') {
+      fetchEnrollments();
+    }
+  }, [activeTab]);
+
+  const fetchEnrollments = async () => {
+    try {
+      setEnrollmentsLoading(true);
+      const res = await api.get(`/courses/${id}/all-enrollments`);
+      setEnrollments(res.data);
+    } catch (err) {
+      console.error("Failed to fetch enrollments", err);
+    } finally {
+      setEnrollmentsLoading(false);
+    }
+  };
+
+  const fetchPendingGrades = async () => {
+    try {
+      setGradesLoading(true);
+      const response = await api.get(`/courses/${id}/pending-grading`);
+      setPendingGrades(response.data || []);
+    } catch (err) {
+      console.error('Error fetching pending grades:', err);
+      setPendingGrades([]);
+    } finally {
+      setGradesLoading(false);
+    }
+  };
+
+  const openGradingModal = (submission) => {
+    setSelectedSub(submission);
+    setManualScore(0);
+  };
+
+  const handleSaveGrade = async () => {
+    setSavingGrade(true);
+    try {
+      const response = await api.put(
+        `/courses/instructor/grade-submission/${selectedSub.id}`,
+        {
+          manualScore: parseInt(manualScore, 10) || 0,
+        }
+      );
+
+      if (response.status === 200 || response.data?.message) {
+        setPendingGrades((prev) => prev.filter((s) => s.id !== selectedSub.id));
+        setSelectedSub(null);
+      }
+    } catch (err) {
+      console.error('Failed to save grade', err);
+      alert('An error occurred while saving the grade.');
+    } finally {
+      setSavingGrade(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'assessment' && user?.role === 'instructor') {
+      fetchPendingGrades();
+    }
+  }, [activeTab, user, id]);
+
+  const handleApproveStudent = async (enrollmentId) => {
+    try {
+      await api.put(`/courses/enrollments/${enrollmentId}/approve`);
+      fetchEnrollments();
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleRejectStudent = async (enrollmentId) => {
+    try {
+      await api.put(`/courses/enrollments/${enrollmentId}/reject`);
+      fetchEnrollments();
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleOpenSubtopic = async (subtopicId) => {
+    try {
+      if (user?.role === 'student' && enrollmentStatus === 'approved') {
+        const flatSubtopics = topics.flatMap((topic) => topic.subtopics || []);
+        const currentIndex = flatSubtopics.findIndex(
+          (sub) => String(sub.id) === String(subtopicId)
+        );
+
+        if (currentIndex !== -1 && flatSubtopics.length > 0) {
+          const progressPercent = Math.round(((currentIndex + 1) / flatSubtopics.length) * 100);
+
+          const res = await api.patch(`/courses/${id}/progress`, {
+            progressPercent,
+          });
+
+          setMyProgress(res.data?.progressPercent || progressPercent);
+        }
+      }
+    } catch (err) {
+      console.error("Failed to update progress:", err);
+    } finally {
+      navigate(`/courses/${id}/subtopic/${subtopicId}`);
+    }
+  };
+
 
   if (loading) return <div className="p-5">Loading Course...</div>;
   if (error) return <div className="p-5 text-danger">{error}</div>;
@@ -179,19 +275,23 @@ const CoursePage = () => {
                             borderRadius: '6px'
                           }}
                         >
-                          <Link
-                            to={`/courses/${id}/subtopic/${sub.id}`}
+                          <button
+                            onClick={() => handleOpenSubtopic(sub.id)}
                             style={{
+                              background: 'none',
+                              border: 'none',
+                              padding: 0,
                               color: '#2980b9',
                               textDecoration: 'none',
                               fontWeight: '500',
                               display: 'flex',
                               alignItems: 'center',
-                              gap: '8px'
+                              gap: '8px',
+                              cursor: 'pointer'
                             }}
                           >
                             📄 {sub.title}
-                          </Link>
+                          </button>
                         </li>
                       ))}
                     </ul>
@@ -201,7 +301,6 @@ const CoursePage = () => {
             )}
           </section>
         );
-
       case 'library':
         return (
           <section
@@ -388,7 +487,7 @@ const CoursePage = () => {
                       return (
                         <div
                           key={sub.id}
-                          onClick={() => navigate(`/courses/${id}/subtopic/${sub.id}`)}
+                          onClick={() => handleOpenSubtopic(sub.id)}
                           style={{
                             padding: '16px',
                             borderRadius: '8px',
@@ -431,7 +530,7 @@ const CoursePage = () => {
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
-                                navigate(`/courses/${id}/subtopic/${sub.id}`);
+                                handleOpenSubtopic(sub.id);
                               }}
                               style={{
                                 padding: '10px 16px',
@@ -489,7 +588,103 @@ const CoursePage = () => {
               boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
             }}
           >
-            <h3 style={{ color: '#2c3e50', marginBottom: '15px' }}>Assessments & Quizzes</h3>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+              <h3 style={{ color: '#2c3e50', margin: 0 }}>Assessments & Quizzes</h3>
+              {user?.role === 'instructor' && (
+                <button
+                  onClick={() => navigate(`/course/edit/${id}`, { state: { activeTab: 'grades' } })}
+                  style={{
+                    padding: '8px 16px',
+                    backgroundColor: '#f39c12',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '6px',
+                    fontWeight: 'bold',
+                    cursor: 'pointer'
+                  }}
+                >
+                  📊 View Student Grades
+                </button>
+              )}
+            </div>
+
+            {user?.role === 'instructor' && (
+              <div style={{ marginBottom: '30px' }}>
+                <h4
+                  style={{
+                    color: '#e67e22',
+                    borderBottom: '2px solid #f39c12',
+                    paddingBottom: '8px',
+                    marginBottom: '15px'
+                  }}
+                >
+                  Assessments Needing Review
+                </h4>
+
+                {gradesLoading ? (
+                  <p>Loading pending submissions...</p>
+                ) : pendingGrades.length === 0 ? (
+                  <div
+                    style={{
+                      background: '#f4fff8',
+                      padding: '20px',
+                      borderRadius: '10px',
+                      border: '1px solid #a5d6a7',
+                      color: '#27ae60'
+                    }}
+                  >
+                    ✅ No manual grading is needed for this course right now.
+                  </div>
+                ) : (
+                  <div style={{ display: 'grid', gap: '12px', marginBottom: '20px' }}>
+                    {pendingGrades.map((sub) => (
+                      <div
+                        key={sub.id}
+                        style={{
+                          background: '#fffaf3',
+                          padding: '18px',
+                          borderRadius: '8px',
+                          border: '1px solid #f8d9a0',
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          gap: '15px'
+                        }}
+                      >
+                        <div>
+                          <h4 style={{ margin: '0 0 6px 0', color: '#333' }}>
+                            {sub.quiz?.title || 'Quiz'}
+                          </h4>
+                          <p style={{ margin: '0 0 8px 0', fontSize: '13px', color: '#666' }}>
+                            <strong>Student:</strong> {sub.student?.fullName}
+                          </p>
+                          <span
+                            style={{
+                              fontSize: '12px',
+                              background: '#fff3e0',
+                              color: '#e67e22',
+                              padding: '4px 8px',
+                              borderRadius: '4px',
+                              fontWeight: 'bold'
+                            }}
+                          >
+                            Auto-Graded Score: {sub.autoScore} points
+                          </span>
+                        </div>
+
+                        <button
+                          className="btn-primary"
+                          style={{ backgroundColor: '#f39c12' }}
+                          onClick={() => openGradingModal(sub)}
+                        >
+                          Grade Essays
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
 
             {quizzes.length === 0 ? (
               <div
@@ -520,18 +715,29 @@ const CoursePage = () => {
                     }}
                   >
                     <div style={{ flex: 1 }}>
-                      <h4 style={{ margin: '0 0 5px 0', color: '#2c3e50', fontSize: '1.2rem' }}>
-                        {quiz.title}
+                      <h4
+                        onClick={() => {
+                          if (user?.role === 'instructor') setViewingQuiz(quiz);
+                        }}
+                        style={{
+                          margin: '0 0 5px 0',
+                          color: user?.role === 'instructor' ? '#3498db' : '#2c3e50',
+                          fontSize: '1.2rem',
+                          cursor: user?.role === 'instructor' ? 'pointer' : 'default',
+                          textDecoration: user?.role === 'instructor' ? 'underline' : 'none'
+                        }}
+                      >
+                        {quiz.title} {user?.role === 'instructor' && '👁️'}
                       </h4>
+
                       {quiz.description && (
                         <p style={{ margin: '0 0 10px 0', color: '#7f8c8d', fontSize: '0.95rem' }}>
                           {quiz.description}
                         </p>
                       )}
+
                       <div style={{ display: 'flex', gap: '10px', fontSize: '0.85rem', fontWeight: 'bold' }}>
-                        <span style={{ color: '#3498db' }}>
-                          {quiz.questions?.length || 0} Questions
-                        </span>
+                        <span style={{ color: '#3498db' }}>{quiz.questions?.length || 0} Questions</span>
                         {quiz.requiresPassword ? (
                           <span style={{ color: '#e74c3c' }}>🔒 Password Required</span>
                         ) : (
@@ -540,23 +746,46 @@ const CoursePage = () => {
                       </div>
                     </div>
 
-                    <div>
-                      <button
-                        className="btn-primary"
-                        onClick={() => navigate(`/courses/${id}/quiz/${quiz.id}`)}
-                        style={{
-                          padding: '10px 20px',
-                          borderRadius: '6px',
-                          cursor: 'pointer',
-                          border: 'none',
-                          backgroundColor: '#9b59b6',
-                          color: 'white',
-                          fontWeight: 'bold'
-                        }}
-                      >
-                        Take Quiz
-                      </button>
-                    </div>
+                    {user?.role === 'student' && (
+                      <div style={{ display: 'flex', gap: '10px' }}>
+                        {quiz.pastResults && quiz.pastResults.length > 0 && (
+                          <button
+                            onClick={() =>
+                              setViewingResults({
+                                title: quiz.title,
+                                attempts: quiz.pastResults
+                              })
+                            }
+                            style={{
+                              padding: '10px 20px',
+                              borderRadius: '6px',
+                              cursor: 'pointer',
+                              border: '2px solid #2ecc71',
+                              backgroundColor: '#f4fff8',
+                              color: '#2ecc71',
+                              fontWeight: 'bold'
+                            }}
+                          >
+                            View Past Results
+                          </button>
+                        )}
+
+                        <button
+                          onClick={() => navigate(`/courses/${id}/quiz/${quiz.id}`)}
+                          style={{
+                            padding: '10px 20px',
+                            borderRadius: '6px',
+                            cursor: 'pointer',
+                            border: 'none',
+                            backgroundColor: '#9b59b6',
+                            color: 'white',
+                            fontWeight: 'bold'
+                          }}
+                        >
+                          {quiz.pastResults && quiz.pastResults.length > 0 ? 'Retake Quiz' : 'Take Quiz'}
+                        </button>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -639,7 +868,68 @@ const CoursePage = () => {
           </section>
         );
       }
+      case 'students': {
+        const filtered = enrollments.filter(e =>
+          e.user?.fullName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          e.user?.email?.toLowerCase().includes(searchQuery.toLowerCase())
+        );
+        const pending = filtered.filter(e => e.status === 'pending');
+        const approved = filtered.filter(e => e.status === 'approved');
 
+        return (
+          <section className="course-students" style={{ animation: 'fadeIn 0.3s ease-in-out', background: '#fff', padding: '30px', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <h3 style={{ color: '#2c3e50', margin: 0 }}>Course Roster</h3>
+              <input type="text" placeholder="🔍 Search name or email..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} style={{ padding: '10px', borderRadius: '6px', border: '1px solid #ccc', width: '250px' }} />
+            </div>
+
+            {enrollmentsLoading ? (
+              <p>Loading students...</p>
+            ) : (
+              <>
+                {pending.length > 0 && (
+                  <div style={{ marginBottom: '30px' }}>
+                    <h4 style={{ color: '#f39c12', borderBottom: '2px solid #f39c12', paddingBottom: '5px' }}>Pending Approvals ({pending.length})</h4>
+                    <div style={{ display: 'grid', gap: '10px', marginTop: '15px' }}>
+                      {pending.map(req => (
+                        <div key={req.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fdfbf7', padding: '15px', borderRadius: '6px', border: '1px solid #fdebd0' }}>
+                          <div>
+                            <strong style={{ display: 'block', color: '#333' }}>{req.user?.fullName}</strong>
+                            <span style={{ fontSize: '0.9rem', color: '#666' }}>{req.user?.email}</span>
+                          </div>
+                          <div style={{ display: 'flex', gap: '10px' }}>
+                            <button onClick={() => handleApproveStudent(req.id)} style={{ padding: '6px 12px', background: '#27ae60', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>Approve</button>
+                            <button onClick={() => handleRejectStudent(req.id)} style={{ padding: '6px 12px', background: '#e74c3c', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>Reject</button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div>
+                  <h4 style={{ color: '#27ae60', borderBottom: '2px solid #27ae60', paddingBottom: '5px' }}>Enrolled Students ({approved.length})</h4>
+                  {approved.length === 0 ? (
+                    <p style={{ color: '#7f8c8d', marginTop: '15px' }}>No enrolled students match your search.</p>
+                  ) : (
+                    <div style={{ display: 'grid', gap: '10px', marginTop: '15px' }}>
+                      {approved.map(req => (
+                        <div key={req.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f8f9fa', padding: '15px', borderRadius: '6px', border: '1px solid #eee' }}>
+                          <div>
+                            <strong style={{ display: 'block', color: '#333' }}>{req.user?.fullName}</strong>
+                            <span style={{ fontSize: '0.9rem', color: '#666' }}>{req.user?.email}</span>
+                          </div>
+                          {/* REMOVE BUTTON DELETED FROM HERE: View only! */}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+          </section>
+        );
+      } // <-- Added closing bracket to match the opening bracket I added to the case.
       default:
         return null;
     }
@@ -647,33 +937,39 @@ const CoursePage = () => {
 
   return (
     <div style={{ maxWidth: '1000px', margin: '0 auto', width: '100%' }}>
-      <header
-        className="dashboard-header"
-        style={{
-          marginBottom: '30px',
-          background: '#fff',
-          padding: '30px',
-          borderRadius: '12px',
-          boxShadow: '0 4px 6px rgba(0,0,0,0.05)'
-        }}
-      >
-        <h2 style={{ fontSize: '2rem', color: '#2c3e50', marginBottom: '10px' }}>{course.title}</h2>
-        <p style={{ fontSize: '1.1rem', color: '#7f8c8d', lineHeight: '1.6' }}>{course.description}</p>
+      <header className="dashboard-header" style={{ marginBottom: '30px', background: '#fff', padding: '30px', borderRadius: '12px', boxShadow: '0 4px 6px rgba(0,0,0,0.05)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <div>
+            <h2 style={{ fontSize: '2rem', color: '#2c3e50', marginBottom: '10px' }}>{course?.title}</h2>
+            <p style={{ fontSize: '1.1rem', color: '#7f8c8d', lineHeight: '1.6' }}>{course?.description}</p>
+          </div>
 
+          {/* NEW: General Edit Course Button (Only visible to Instructors) */}
+          {user?.role === 'instructor' && (
+            <button
+              onClick={() => navigate(`/course/edit/${id}`)}
+              style={{ padding: '10px 20px', backgroundColor: '#3498db', color: 'white', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', whiteSpace: 'nowrap' }}
+            >
+              ✏️ Edit Course
+            </button>
+          )}
+        </div>
+
+        {/* Enrollment Logic (Only visible to Students) */}
         <div style={{ marginTop: '20px' }}>
           {user?.role === 'student' && !enrollmentStatus && (
             <button
               className="btn-primary"
-              onClick={() => { }}
+              onClick={handleEnroll}
               style={{ padding: '10px 24px', fontSize: '1rem', fontWeight: 'bold' }}
             >
               Enroll Now
             </button>
           )}
+
           {user?.role === 'student' && enrollmentStatus === 'pending' && (
             <span
               style={{
-                display: 'inline-block',
                 padding: '8px 16px',
                 backgroundColor: '#f39c12',
                 color: 'white',
@@ -684,109 +980,339 @@ const CoursePage = () => {
               Enrollment Pending
             </span>
           )}
+
           {user?.role === 'student' && enrollmentStatus === 'approved' && (
-            <span
-              style={{
-                display: 'inline-block',
-                padding: '8px 16px',
-                backgroundColor: '#27ae60',
-                color: 'white',
-                borderRadius: '6px',
-                fontWeight: 'bold'
-              }}
-            >
-              Currently Enrolled
-            </span>
+            <>
+              <span
+                style={{
+                  padding: '8px 16px',
+                  backgroundColor: '#27ae60',
+                  color: 'white',
+                  borderRadius: '6px',
+                  fontWeight: 'bold',
+                  display: 'inline-block'
+                }}
+              >
+                Currently Enrolled
+              </span>
+
+              <div style={{ marginTop: '16px', maxWidth: '420px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
+                  <span style={{ fontWeight: '600', color: '#2c3e50' }}>Your Progress</span>
+                  <span style={{ fontWeight: '600', color: '#27ae60' }}>{myProgress}%</span>
+                </div>
+
+                <div
+                  style={{
+                    width: '100%',
+                    height: '12px',
+                    backgroundColor: '#ecf0f1',
+                    borderRadius: '999px',
+                    overflow: 'hidden'
+                  }}
+                >
+                  <div
+                    style={{
+                      width: `${myProgress}%`,
+                      height: '100%',
+                      backgroundColor: '#27ae60',
+                      transition: 'width 0.3s ease'
+                    }}
+                  />
+                </div>
+              </div>
+            </>
           )}
         </div>
       </header>
 
-      <div
-        style={{
-          display: 'flex',
-          gap: '10px',
-          marginBottom: '30px',
-          borderBottom: '2px solid #ecf0f1',
-          paddingBottom: '1px'
-        }}
-      >
-        <button
-          onClick={() => setActiveTab('content')}
-          style={{
-            padding: '12px 24px',
-            fontSize: '1rem',
-            fontWeight: '600',
-            backgroundColor: 'transparent',
-            border: 'none',
-            borderBottom: activeTab === 'content' ? '3px solid #3498db' : '3px solid transparent',
-            color: activeTab === 'content' ? '#3498db' : '#7f8c8d',
-            cursor: 'pointer',
-            transition: 'all 0.2s ease',
-            outline: 'none'
-          }}
-        >
+      <div style={{ display: 'flex', gap: '10px', marginBottom: '30px', borderBottom: '2px solid #ecf0f1', paddingBottom: '1px' }}>
+        <button onClick={() => setActiveTab('content')} style={{ padding: '12px 24px', fontSize: '1rem', fontWeight: '600', backgroundColor: 'transparent', border: 'none', borderBottom: activeTab === 'content' ? '3px solid #3498db' : '3px solid transparent', color: activeTab === 'content' ? '#3498db' : '#7f8c8d', cursor: 'pointer', transition: 'all 0.2s ease', outline: 'none' }}>
           📚 Content
         </button>
-
-        <button
-          onClick={() => setActiveTab('library')}
-          style={{
-            padding: '12px 24px',
-            fontSize: '1rem',
-            fontWeight: '600',
-            backgroundColor: 'transparent',
-            border: 'none',
-            borderBottom: activeTab === 'library' ? '3px solid #f39c12' : '3px solid transparent',
-            color: activeTab === 'library' ? '#f39c12' : '#7f8c8d',
-            cursor: 'pointer',
-            transition: 'all 0.2s ease',
-            outline: 'none'
-          }}
-        >
+        <button onClick={() => setActiveTab('library')} style={{ padding: '12px 24px', fontSize: '1rem', fontWeight: '600', backgroundColor: 'transparent', border: 'none', borderBottom: activeTab === 'library' ? '3px solid #f39c12' : '3px solid transparent', color: activeTab === 'library' ? '#f39c12' : '#7f8c8d', cursor: 'pointer', transition: 'all 0.2s ease', outline: 'none' }}>
           📁 Library
         </button>
-
-        <button
-          onClick={() => setActiveTab('assessment')}
-          style={{
-            padding: '12px 24px',
-            fontSize: '1rem',
-            fontWeight: '600',
-            backgroundColor: 'transparent',
-            border: 'none',
-            borderBottom: activeTab === 'assessment' ? '3px solid #9b59b6' : '3px solid transparent',
-            color: activeTab === 'assessment' ? '#9b59b6' : '#7f8c8d',
-            cursor: 'pointer',
-            transition: 'all 0.2s ease',
-            outline: 'none'
-          }}
-        >
+        <button onClick={() => setActiveTab('assessment')} style={{ padding: '12px 24px', fontSize: '1rem', fontWeight: '600', backgroundColor: 'transparent', border: 'none', borderBottom: activeTab === 'assessment' ? '3px solid #9b59b6' : '3px solid transparent', color: activeTab === 'assessment' ? '#9b59b6' : '#7f8c8d', cursor: 'pointer', transition: 'all 0.2s ease', outline: 'none' }}>
           📝 Assessment
         </button>
-
-        <button
-          onClick={() => setActiveTab('discussion')}
-          style={{
-            padding: '12px 24px',
-            fontSize: '1rem',
-            fontWeight: '600',
-            backgroundColor: 'transparent',
-            border: 'none',
-            borderBottom: activeTab === 'discussion' ? '3px solid #2ecc71' : '3px solid transparent',
-            color: activeTab === 'discussion' ? '#2ecc71' : '#7f8c8d',
-            cursor: 'pointer',
-            transition: 'all 0.2s ease',
-            outline: 'none'
-          }}
-        >
+        <button onClick={() => setActiveTab('discussion')} style={{ padding: '12px 24px', fontSize: '1rem', fontWeight: '600', backgroundColor: 'transparent', border: 'none', borderBottom: activeTab === 'discussion' ? '3px solid #2ecc71' : '3px solid transparent', color: activeTab === 'discussion' ? '#2ecc71' : '#7f8c8d', cursor: 'pointer', transition: 'all 0.2s ease', outline: 'none' }}>
           💬 Discussion Board
         </button>
+        {user?.role === 'instructor' && (
+          <button onClick={() => setActiveTab('students')} style={{ padding: '12px 24px', fontSize: '1rem', fontWeight: '600', backgroundColor: 'transparent', border: 'none', borderBottom: activeTab === 'students' ? '3px solid #e67e22' : '3px solid transparent', color: activeTab === 'students' ? '#e67e22' : '#7f8c8d', cursor: 'pointer', transition: 'all 0.2s ease', outline: 'none' }}>
+            👥 Students
+          </button>
+        )}
       </div>
 
       <div style={{ minHeight: '400px' }}>
         {renderTabContent()}
       </div>
-    </div>
+
+      {/* Pop-up Modals for Quizzes and Results */}
+      {viewingQuiz && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.6)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }}>
+          <div style={{ background: 'white', padding: '30px', borderRadius: '12px', width: '90%', maxWidth: '700px', maxHeight: '85vh', overflowY: 'auto', boxShadow: '0 10px 25px rgba(0,0,0,0.2)' }}>
+            <h2 style={{ marginTop: 0, color: '#2c3e50' }}>{viewingQuiz.title} Preview</h2>
+            <hr style={{ margin: '20px 0', borderTop: '1px solid #ecf0f1' }} />
+            {viewingQuiz.questions?.map((q, i) => (
+              <div key={i} style={{ marginBottom: '25px', padding: '15px', backgroundColor: '#f8f9fa', borderRadius: '8px' }}>
+                <strong style={{ fontSize: '1.1rem', color: '#34495e' }}>Q{i + 1}: {q.text}</strong>
+                {q.type === 'MCQ' && (
+                  <ul style={{ listStyleType: 'none', paddingLeft: 0, marginTop: '12px' }}>
+                    {q.options?.map((opt, oIdx) => {
+                      const isCorrect = q.correctAnswer === String(oIdx);
+                      return (
+                        <li key={oIdx} style={{ padding: '8px 12px', marginBottom: '6px', borderRadius: '4px', backgroundColor: isCorrect ? '#e8f8f5' : '#fff', border: isCorrect ? '1px solid #2ecc71' : '1px solid #e0e0e0', color: isCorrect ? '#27ae60' : '#2c3e50', fontWeight: isCorrect ? 'bold' : 'normal' }}>
+                          {opt} {isCorrect && ' ✓ (Correct)'}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </div>
+            ))}
+            <div style={{ textAlign: 'right', marginTop: '30px' }}>
+              <button onClick={() => setViewingQuiz(null)} style={{ padding: '10px 24px', backgroundColor: '#e74c3c', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>Close Preview</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {viewingResults && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0,0,0,0.6)',
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            zIndex: 1000
+          }}
+        >
+          <div
+            style={{
+              background: 'white',
+              padding: '30px',
+              borderRadius: '12px',
+              width: '90%',
+              maxWidth: '700px',
+              maxHeight: '85vh',
+              overflowY: 'auto',
+              boxShadow: '0 10px 25px rgba(0,0,0,0.2)'
+            }}
+          >
+            <h3 style={{ marginTop: 0, color: '#2c3e50' }}>
+              Past Results — {viewingResults.title}
+            </h3>
+
+            {viewingResults.attempts.length === 0 ? (
+              <p style={{ color: '#7f8c8d' }}>No past attempts found.</p>
+            ) : (
+              <div style={{ display: 'grid', gap: '12px', marginTop: '20px' }}>
+                {viewingResults.attempts.map((attempt, index) => (
+                  <div
+                    key={attempt.id}
+                    style={{
+                      background: '#f8f9fa',
+                      border: '1px solid #ecf0f1',
+                      borderRadius: '8px',
+                      padding: '18px'
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        marginBottom: '8px',
+                        gap: '15px',
+                        flexWrap: 'wrap'
+                      }}
+                    >
+                      <strong style={{ color: '#2c3e50' }}>
+                        Attempt {viewingResults.attempts.length - index}
+                      </strong>
+                      <span style={{ color: '#7f8c8d', fontSize: '0.9rem' }}>
+                        {new Date(attempt.submittedAt).toLocaleString()}
+                      </span>
+                    </div>
+
+                    {attempt.isGraded ? (
+                      <>
+                        <p style={{ margin: '6px 0', color: '#34495e' }}>
+                          Auto Score: <strong>{attempt.autoScore}</strong>
+                        </p>
+                        <p style={{ margin: '6px 0', color: '#34495e' }}>
+                          Essay Score: <strong>{attempt.manualScore}</strong>
+                        </p>
+                        <p
+                          style={{
+                            margin: '10px 0 0 0',
+                            color: '#27ae60',
+                            fontWeight: 'bold',
+                            fontSize: '1.05rem'
+                          }}
+                        >
+                          Final Score: {attempt.totalScore}%
+                        </p>
+                      </>
+                    ) : (
+                      <>
+                        <p style={{ margin: '6px 0', color: '#34495e' }}>
+                          Auto Score So Far: <strong>{attempt.autoScore}</strong>
+                        </p>
+                        <p style={{ margin: '10px 0 0 0', color: '#f39c12', fontWeight: 'bold' }}>
+                          Pending instructor review
+                        </p>
+                      </>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div style={{ marginTop: '25px', textAlign: 'right' }}>
+              <button
+                onClick={() => setViewingResults(null)}
+                style={{
+                  padding: '10px 24px',
+                  backgroundColor: '#ecf0f1',
+                  color: '#2c3e50',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontWeight: 'bold'
+                }}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {selectedSub && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0,0,0,0.6)',
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            zIndex: 9999
+          }}
+        >
+          <div
+            style={{
+              background: '#fff',
+              padding: '30px',
+              borderRadius: '12px',
+              maxWidth: '800px',
+              width: '90%',
+              maxHeight: '85vh',
+              overflowY: 'auto',
+              boxShadow: '0 10px 25px rgba(0,0,0,0.2)'
+            }}
+          >
+            <h2 style={{ borderBottom: '1px solid #eee', paddingBottom: '15px', marginTop: 0 }}>
+              Grading: {selectedSub.student?.fullName}'s Submission
+            </h2>
+
+            <p style={{ color: '#1976d2', fontWeight: 'bold' }}>Review Long-Answer Responses</p>
+
+            {selectedSub.quiz?.questions?.filter((q) => q.type === 'LONG').map((q, index) => (
+              <div
+                key={q.id}
+                style={{
+                  background: '#f8f9fa',
+                  padding: '20px',
+                  borderRadius: '8px',
+                  marginBottom: '20px'
+                }}
+              >
+                <p style={{ fontWeight: 'bold', margin: '0 0 10px 0' }}>
+                  Q{index + 1}: {q.text}
+                </p>
+                <p style={{ fontSize: '13px', color: '#666', margin: '0 0 5px 0' }}>
+                  Student's Answer:
+                </p>
+                <div
+                  style={{
+                    background: '#fff',
+                    padding: '15px',
+                    border: '1px solid #e0e0e0',
+                    borderRadius: '4px',
+                    whiteSpace: 'pre-wrap'
+                  }}
+                >
+                  {selectedSub.answers?.[q.id] || (
+                    <span style={{ color: '#999', fontStyle: 'italic' }}>No answer provided.</span>
+                  )}
+                </div>
+              </div>
+            ))}
+
+            <div
+              style={{
+                background: '#f4fff8',
+                border: '1px solid #a5d6a7',
+                padding: '20px',
+                borderRadius: '8px',
+                textAlign: 'center',
+                marginTop: '30px'
+              }}
+            >
+              <h3 style={{ margin: '0 0 10px 0' }}>Award Manual Points</h3>
+              <p style={{ fontSize: '14px', color: '#666', marginBottom: '15px' }}>
+                The student already has <strong>{selectedSub.autoScore}</strong> points from auto-graded questions.
+                Add essay marks below.
+              </p>
+
+              <input
+                type="number"
+                value={manualScore}
+                onChange={(e) => setManualScore(e.target.value)}
+                style={{
+                  padding: '10px',
+                  fontSize: '16px',
+                  width: '150px',
+                  textAlign: 'center',
+                  borderRadius: '4px',
+                  border: '1px solid #ccc'
+                }}
+              />
+
+              <p style={{ marginTop: '12px', fontWeight: 'bold', color: '#27ae60' }}>
+                Final score preview: {(selectedSub.autoScore || 0) + (parseInt(manualScore, 10) || 0)}
+              </p>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '15px', marginTop: '30px' }}>
+              <button className="btn-secondary" onClick={() => setSelectedSub(null)}>
+                Cancel
+              </button>
+              <button
+                className="btn-primary"
+                style={{ backgroundColor: '#27ae60' }}
+                onClick={handleSaveGrade}
+                disabled={savingGrade}
+              >
+                {savingGrade ? 'Saving...' : 'Save Final Grade'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div >
   );
 };
 

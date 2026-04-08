@@ -10,7 +10,7 @@ const Question = require("./Question");
 const QuizSubmission = require("./QuizSubmission");
 const DiscussionBoard = require("./DiscussionBoard");
 const DiscussionPost = require("./DiscussionPost");
-const SupportTicket = require("./SupportTicket"); // ADD THIS
+const SupportTicket = require("./SupportTicket");
 
 // --- COURSE & USER ASSOCIATIONS (Enrollment) ---
 User.hasMany(Course, { foreignKey: "instructorId", as: "coursesTaught" });
@@ -91,5 +91,5 @@ module.exports = {
   QuizSubmission,
   DiscussionBoard,
   DiscussionPost,
-  SupportTicket, // ADD THIS
+  SupportTicket,
 };

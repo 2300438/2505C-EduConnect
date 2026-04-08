@@ -263,7 +263,7 @@ sequelize.sync({ alter: true })
     });
 
 // POST /api/courses/:id/generate-ai-quiz
-app.post('/api/courses/:id/generate-ai-quiz', async (req, res) => {
+app.post('/api/courses/:id/generate-ai-quiz', protect, async (req, res) => {
     try {
         const { count } = req.body;
         const courseId = req.params.id;
