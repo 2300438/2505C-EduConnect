@@ -1,11 +1,11 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext'; // 1. Must import this!
+import { useAuth } from '../context/AuthContext'; 
 import '../styles/style.css';
 
 const Home = () => {
     const navigate = useNavigate();
-    const { user } = useAuth(); // 2. Must define user here!
+    const { user } = useAuth(); 
 
     return (
         <div className="home-page">
@@ -20,6 +20,7 @@ const Home = () => {
 
             <section className="action-section">
                 <div className="card-container">
+                    
                     {/* CARD 1: DYNAMIC DASHBOARD */}
                     <div
                         className="action-card"
@@ -32,7 +33,20 @@ const Home = () => {
                         <h3>📚 My Courses</h3>
                     </div>
 
-                    {/* CARD 2: PROFILE */}
+                    {/* CARD 2: BROWSE COURSES (Replaced Take a Quiz) */}
+                    <div
+                        className="action-card"
+                        onClick={() => {
+                            // If instructor, go to their dashboard. If student, go to the browse page.
+                            const path = user?.role === 'instructor' ? '/instructor-dashboard' : '/courses';
+                            navigate(path);
+                        }}
+                        style={{ cursor: 'pointer' }}
+                    >
+                        <h3>🔍 Browse All Courses</h3>
+                    </div>
+
+                    {/* CARD 3: PROFILE */}
                     <div
                         className="action-card"
                         onClick={() => navigate('/profile')}
@@ -40,13 +54,8 @@ const Home = () => {
                     >
                         <h3>👤 My Profile</h3>
                     </div>
-                    <div
-                        className="action-card"
-                        onClick={() => navigate(user?.role === 'instructor' ? '/instructor-dashboard' : '/dashboard')} 
-                        style={{ cursor: 'pointer' }}
-                    >
-                        <h3>📋 Take a Quiz</h3>
-                    </div>
+
+                    {/* CARD 4: SUPPORT */}
                     <div
                         className="action-card"
                         onClick={() => navigate('/supportpage')}
@@ -54,6 +63,7 @@ const Home = () => {
                     >
                         <h3>🎧 Get Support</h3>
                     </div>
+
                 </div>
             </section>
         </div>

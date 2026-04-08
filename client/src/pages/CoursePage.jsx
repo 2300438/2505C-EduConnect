@@ -130,10 +130,11 @@ const CoursePage = () => {
 
   // --- ENROLLMENT LOGIC (From Stash) ---
   useEffect(() => {
-    if (activeTab === 'students' && user?.role === 'instructor') {
+    if (user?.role === 'instructor') {
       fetchEnrollments();
+      fetchPendingGrades();
     }
-  }, [activeTab]);
+  }, [user, id]);
 
   const fetchEnrollments = async () => {
     try {
@@ -193,6 +194,8 @@ const CoursePage = () => {
     }
   }, [activeTab, user, id]);
 
+
+
   const handleApproveStudent = async (enrollmentId) => {
     try {
       await api.put(`/courses/enrollments/${enrollmentId}/approve`);
@@ -208,6 +211,18 @@ const CoursePage = () => {
       fetchEnrollments();
     } catch (err) {
       console.error(err);
+    }
+  };
+
+  const handleEnroll = async () => {
+    try {
+      await api.post(`/courses/${id}/enroll`);
+      setEnrollmentStatus('pending');
+      // Optional: Add a success toast or alert here
+      alert("Enrollment request sent! Waiting for instructor approval.");
+    } catch (err) {
+      console.error("Failed to enroll", err);
+      alert(err.response?.data?.message || "Failed to submit enrollment request.");
     }
   };
 
@@ -243,6 +258,17 @@ const CoursePage = () => {
   const renderTabContent = () => {
     switch (activeTab) {
       case 'content':
+        // --- SECURITY CHECK FOR CONTENT ---
+        if (user?.role !== 'instructor' && enrollmentStatus !== 'approved') {
+          return (
+            <div style={{ padding: '60px', textAlign: 'center', backgroundColor: '#f8f9fa', borderRadius: '12px', border: '1px dashed #bdc3c7' }}>
+              <span style={{ fontSize: '3rem', display: 'block', marginBottom: '15px' }}>🔒</span>
+              <h3 style={{ color: '#2c3e50', margin: '0 0 10px 0' }}>Course Locked</h3>
+              <p style={{ color: '#7f8c8d', fontSize: '1.1rem', margin: 0 }}>Please enroll and wait for instructor approval to access the learning materials.</p>
+            </div>
+          );
+        }
+
         return (
           <section className="course-syllabus" style={{ animation: 'fadeIn 0.3s ease-in-out' }}>
             <h3 style={{ marginBottom: '20px', color: '#2c3e50' }}>Course Syllabus</h3>
@@ -301,7 +327,13 @@ const CoursePage = () => {
             )}
           </section>
         );
+
       case 'library':
+        // --- SECURITY CHECK FOR LIBRARY ---
+        if (user?.role !== 'instructor' && enrollmentStatus !== 'approved') {
+          return <div style={{ padding: '40px', textAlign: 'center', color: '#7f8c8d' }}>You must be enrolled to view the library.</div>;
+        }
+
         return (
           <section
             className="course-library"
@@ -575,6 +607,11 @@ const CoursePage = () => {
         );
 
       case 'assessment': {
+        // --- SECURITY CHECK FOR ASSESSMENT ---
+        if (user?.role !== 'instructor' && enrollmentStatus !== 'approved') {
+          return <div style={{ padding: '40px', textAlign: 'center', color: '#7f8c8d' }}>You must be enrolled to view assessments.</div>;
+        }
+
         const quizzes = course?.quizzes || [];
 
         return (
@@ -795,6 +832,11 @@ const CoursePage = () => {
       }
 
       case 'discussion': {
+        // --- SECURITY CHECK FOR DISCUSSION ---
+        if (user?.role !== 'instructor' && enrollmentStatus !== 'approved') {
+          return <div style={{ padding: '40px', textAlign: 'center', color: '#7f8c8d' }}>You must be enrolled to view discussion boards.</div>;
+        }
+
         const discussions = course?.discussions || [];
 
         return (
@@ -929,7 +971,7 @@ const CoursePage = () => {
             )}
           </section>
         );
-      } // <-- Added closing bracket to match the opening bracket I added to the case.
+      }
       default:
         return null;
     }
@@ -1026,22 +1068,44 @@ const CoursePage = () => {
         </div>
       </header>
 
+      {/* 1. Define who gets full access */}
       <div style={{ display: 'flex', gap: '10px', marginBottom: '30px', borderBottom: '2px solid #ecf0f1', paddingBottom: '1px' }}>
-        <button onClick={() => setActiveTab('content')} style={{ padding: '12px 24px', fontSize: '1rem', fontWeight: '600', backgroundColor: 'transparent', border: 'none', borderBottom: activeTab === 'content' ? '3px solid #3498db' : '3px solid transparent', color: activeTab === 'content' ? '#3498db' : '#7f8c8d', cursor: 'pointer', transition: 'all 0.2s ease', outline: 'none' }}>
-          📚 Content
-        </button>
-        <button onClick={() => setActiveTab('library')} style={{ padding: '12px 24px', fontSize: '1rem', fontWeight: '600', backgroundColor: 'transparent', border: 'none', borderBottom: activeTab === 'library' ? '3px solid #f39c12' : '3px solid transparent', color: activeTab === 'library' ? '#f39c12' : '#7f8c8d', cursor: 'pointer', transition: 'all 0.2s ease', outline: 'none' }}>
-          📁 Library
-        </button>
-        <button onClick={() => setActiveTab('assessment')} style={{ padding: '12px 24px', fontSize: '1rem', fontWeight: '600', backgroundColor: 'transparent', border: 'none', borderBottom: activeTab === 'assessment' ? '3px solid #9b59b6' : '3px solid transparent', color: activeTab === 'assessment' ? '#9b59b6' : '#7f8c8d', cursor: 'pointer', transition: 'all 0.2s ease', outline: 'none' }}>
-          📝 Assessment
-        </button>
-        <button onClick={() => setActiveTab('discussion')} style={{ padding: '12px 24px', fontSize: '1rem', fontWeight: '600', backgroundColor: 'transparent', border: 'none', borderBottom: activeTab === 'discussion' ? '3px solid #2ecc71' : '3px solid transparent', color: activeTab === 'discussion' ? '#2ecc71' : '#7f8c8d', cursor: 'pointer', transition: 'all 0.2s ease', outline: 'none' }}>
-          💬 Discussion Board
-        </button>
+        
+        {/* Only show learning tabs if Instructor OR Approved Student */}
+        {(user?.role === 'instructor' || enrollmentStatus === 'approved') && (
+          <>
+            <button onClick={() => setActiveTab('content')} style={{ padding: '12px 24px', fontSize: '1rem', fontWeight: '600', backgroundColor: 'transparent', border: 'none', borderBottom: activeTab === 'content' ? '3px solid #3498db' : '3px solid transparent', color: activeTab === 'content' ? '#3498db' : '#7f8c8d', cursor: 'pointer', transition: 'all 0.2s ease', outline: 'none' }}>
+              📚 Content
+            </button>
+            <button onClick={() => setActiveTab('library')} style={{ padding: '12px 24px', fontSize: '1rem', fontWeight: '600', backgroundColor: 'transparent', border: 'none', borderBottom: activeTab === 'library' ? '3px solid #f39c12' : '3px solid transparent', color: activeTab === 'library' ? '#f39c12' : '#7f8c8d', cursor: 'pointer', transition: 'all 0.2s ease', outline: 'none' }}>
+              📁 Library
+            </button>
+            
+            {/* Assessment Tab with Dynamic Badge */}
+            <button onClick={() => setActiveTab('assessment')} style={{ padding: '12px 24px', fontSize: '1rem', fontWeight: '600', backgroundColor: 'transparent', border: 'none', borderBottom: activeTab === 'assessment' ? '3px solid #9b59b6' : '3px solid transparent', color: activeTab === 'assessment' ? '#9b59b6' : '#7f8c8d', cursor: 'pointer', transition: 'all 0.2s ease', outline: 'none', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              📝 Assessment
+              {user?.role === 'instructor' && pendingGrades.length > 0 && (
+                <span style={{ background: '#e74c3c', color: 'white', padding: '2px 8px', borderRadius: '12px', fontSize: '0.8rem', fontWeight: 'bold' }}>
+                  {pendingGrades.length}
+                </span>
+              )}
+            </button>
+
+            <button onClick={() => setActiveTab('discussion')} style={{ padding: '12px 24px', fontSize: '1rem', fontWeight: '600', backgroundColor: 'transparent', border: 'none', borderBottom: activeTab === 'discussion' ? '3px solid #2ecc71' : '3px solid transparent', color: activeTab === 'discussion' ? '#2ecc71' : '#7f8c8d', cursor: 'pointer', transition: 'all 0.2s ease', outline: 'none' }}>
+              💬 Discussion Board
+            </button>
+          </>
+        )}
+
+        {/* Students Tab with Dynamic Badge */}
         {user?.role === 'instructor' && (
-          <button onClick={() => setActiveTab('students')} style={{ padding: '12px 24px', fontSize: '1rem', fontWeight: '600', backgroundColor: 'transparent', border: 'none', borderBottom: activeTab === 'students' ? '3px solid #e67e22' : '3px solid transparent', color: activeTab === 'students' ? '#e67e22' : '#7f8c8d', cursor: 'pointer', transition: 'all 0.2s ease', outline: 'none' }}>
+          <button onClick={() => setActiveTab('students')} style={{ padding: '12px 24px', fontSize: '1rem', fontWeight: '600', backgroundColor: 'transparent', border: 'none', borderBottom: activeTab === 'students' ? '3px solid #e67e22' : '3px solid transparent', color: activeTab === 'students' ? '#e67e22' : '#7f8c8d', cursor: 'pointer', transition: 'all 0.2s ease', outline: 'none', display: 'flex', alignItems: 'center', gap: '8px' }}>
             👥 Students
+            {enrollments.filter(e => e.status === 'pending').length > 0 && (
+              <span style={{ background: '#e74c3c', color: 'white', padding: '2px 8px', borderRadius: '12px', fontSize: '0.8rem', fontWeight: 'bold' }}>
+                {enrollments.filter(e => e.status === 'pending').length}
+              </span>
+            )}
           </button>
         )}
       </div>
