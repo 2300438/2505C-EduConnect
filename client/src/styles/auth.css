@@ -1,0 +1,155 @@
+/* Variables to match your MUI Theme */
+:root {
+    --primary-blue: #1976d2;
+    --primary-blue-dark: #1565c0;
+    --success-green: #2e7d32;
+    --success-green-dark: #1b5e20;
+    --bg-gray: #f5f5f5;
+    --text-secondary: #666666;
+    --white: #ffffff;
+    --shadow: 0px 3px 5px -1px rgba(0,0,0,0.2), 
+              0px 6px 10px 0px rgba(0,0,0,0.14), 
+              0px 1px 18px 0px rgba(0,0,0,0.12); /* MUI Elevation 6 */
+}
+
+/* Centered Container */
+.auth-container {
+    height: 100vh;
+    width: 100vw;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: var(--bg-gray);
+    font-family: "Roboto", "Helvetica", "Arial", sans-serif;
+}
+
+/* The Card Wrapper */
+.auth-card {
+    background: var(--white);
+    width: 100%;
+    max-width: 400px;
+    border-radius: 16px; /* Matches MUI sx borderRadius: 4 */
+    overflow: hidden;
+    box-shadow: var(--shadow);
+}
+
+/* Header Section (Blue by default) */
+.auth-card h2 {
+    background-color: var(--primary-blue);
+    color: white;
+    margin: 0;
+    padding: 32px 16px 8px 16px;
+    text-align: center;
+    font-size: 1.5rem;
+    font-weight: 700;
+}
+
+/* Subtitle inside the header area */
+.auth-subtitle {
+    background-color: var(--primary-blue);
+    color: rgba(255, 255, 255, 0.8);
+    margin: 0;
+    padding: 0 16px 32px 16px;
+    text-align: center;
+    font-size: 0.875rem;
+}
+
+/* Form Padding */
+.auth-form {
+    padding: 32px;
+}
+
+/* Input Styling to match MUI OutlinedTextField */
+.form-group {
+    margin-bottom: 20px;
+    display: flex;
+    flex-direction: column;
+}
+
+.form-group label {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    margin-bottom: 4px;
+    font-weight: 500;
+}
+
+.form-group input {
+    padding: 16.5px 14px;
+    border: 1px solid rgba(0, 0, 0, 0.23);
+    border-radius: 4px;
+    font-size: 1rem;
+    transition: border-color 0.2s;
+}
+
+.form-group input:focus {
+    outline: none;
+    border-color: var(--primary-blue);
+    border-width: 2px;
+    padding: 15.5px 13px; /* Adjust for border width change */
+}
+
+/* Button Styling (MUI Contained) */
+.btn-primary {
+    width: 100%;
+    background-color: var(--primary-blue);
+    color: white;
+    border: none;
+    padding: 12px;
+    border-radius: 8px;
+    font-size: 0.9375rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: background-color 0.2s, box-shadow 0.2s;
+    margin-top: 16px;
+}
+
+.btn-primary:hover {
+    background-color: var(--primary-blue-dark);
+    box-shadow: 0px 2px 4px -1px rgba(0,0,0,0.2);
+}
+
+.btn-primary:disabled {
+    background-color: #bdbdbd;
+    cursor: not-allowed;
+}
+
+/* Success Banner (For Forgot Password link sent) */
+.success-banner {
+    padding: 20px;
+    background-color: #edf7ed; /* MUI Success Light */
+    color: #1e4620;
+    border-radius: 8px;
+    margin: 32px;
+    text-align: center;
+    font-size: 0.875rem;
+    line-height: 1.43;
+}
+
+.back-to-login {
+    display: inline-block;
+    margin-top: 15px;
+    color: var(--primary-blue);
+    text-decoration: none;
+    font-weight: 700;
+}
+
+/* Footer Links */
+.auth-footer {
+    text-align: center;
+    margin-top: 16px;
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+}
+
+.auth-footer a {
+    color: var(--primary-blue);
+    text-decoration: none;
+    font-weight: 700;
+}
+
+.error-text {
+    color: #d32f2f;
+    font-size: 0.75rem;
+    margin-top: 4px;
+}

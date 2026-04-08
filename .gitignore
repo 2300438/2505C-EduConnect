@@ -1,0 +1,12 @@
+# --- Root Level ---
+.DS_Store
+
+# --- Server / Backend ---
+server/node_modules/
+server/.env
+
+# --- Client / Frontend ---
+client/node_modules/
+client/dist/
+client/build/
+client/.env
