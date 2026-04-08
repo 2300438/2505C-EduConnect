@@ -460,7 +460,6 @@ router.put("/:id", validateToken, upload.any(), async (req, res) => {
 });
 
 
-
 // --- STUDENT ENROLL IN COURSE ---
 router.post("/:courseId/enroll", validateToken, async (req, res) => {
   try {
@@ -889,7 +888,6 @@ router.get("/:courseId/quizzes/:quizId", validateToken, async (req, res) => {
     // SECURITY CHECK: If the user is a student, we hide the sensitive data!
     if (req.user.role === 'student') {
       quizData.password = quizData.requiresPassword ? "hidden" : null;
-
       quizData.questions = quizData.questions.map(q => ({
         id: q.id,
         text: q.text,
@@ -1098,7 +1096,6 @@ router.get("/:courseId/grades", validateToken, async (req, res) => {
 router.delete("/submissions/:submissionId", validateToken, async (req, res) => {
   try {
     const { submissionId } = req.params;
-
     // Find the submission and include course data to verify the instructor owns it
     const submission = await QuizSubmission.findByPk(submissionId, {
       include: [{
@@ -1109,7 +1106,6 @@ router.delete("/submissions/:submissionId", validateToken, async (req, res) => {
     });
 
     if (!submission) return res.status(404).json({ message: "Submission not found." });
-
     // Verify the user deleting it is the instructor of the course
     if (submission.quiz.course.instructorId !== req.user.id) {
       return res.status(403).json({ message: "Not authorized to delete this grade." });

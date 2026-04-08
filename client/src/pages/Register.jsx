@@ -27,7 +27,6 @@ const Register = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { login } = useAuth();
-
   // Initialize role from navigation state or default to student
   const [role, setRole] = useState(location.state?.role || 'student');
 
