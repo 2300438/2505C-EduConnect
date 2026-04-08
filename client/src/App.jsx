@@ -19,7 +19,10 @@ import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
 import CreateQuiz from './pages/CreateQuiz';
 import TakeQuiz from './pages/TakeQuiz';
+import EditQuiz from './pages/EditQuiz';
 import DiscussionRoom from './pages/DiscussionRoom';
+import SupportPage from './pages/SupportPage';
+import Library from './pages/Library';
 
 // Components
 import Chatbot from './components/Chatbot';
@@ -76,8 +79,12 @@ const Navbar = () => {
       {/* 2. Center Section (Home & Dashboard Links) */}
       <div className="nav-center" style={{ textAlign: 'center' }}>
         <ul style={{ display: 'inline-flex', listStyle: 'none', gap: '20px', margin: 0, padding: 0 }}>
-          <li><Link to="/" style={{ textDecoration: 'none', color: '#333' }}>Home</Link></li>
-          {/* Only show Dashboard if logged in (Profile moved to dropdown) */}
+          <li>
+            <Link to="/" style={{ textDecoration: 'none', color: '#333' }}>
+              Home
+            </Link>
+          </li>
+
           {isAuthenticated && user && (
             <li>
               <Link
@@ -85,6 +92,17 @@ const Navbar = () => {
                 style={{ textDecoration: 'none', color: '#333' }}
               >
                 My Courses
+              </Link>
+            </li>
+          )}
+
+          {isAuthenticated && user && (
+            <li>
+              <Link
+                to="/library"
+                style={{ textDecoration: 'none', color: '#333' }}
+              >
+                Library
               </Link>
             </li>
           )}
@@ -211,6 +229,9 @@ const AppContent = () => {
             <Route path="/courses" element={
               <ProtectedRoute allowedRole="student"><BrowseCourses /></ProtectedRoute>
             } />
+            <Route path="/library" element={
+              <ProtectedRoute><Library /></ProtectedRoute>
+            } />
 
             {/* Instructor Routes */}
             <Route path="/instructor-dashboard" element={
@@ -224,6 +245,10 @@ const AppContent = () => {
             } />
             <Route path="/course/:id/quizzes/new" element={
               <ProtectedRoute allowedRole="instructor"><CreateQuiz /></ProtectedRoute>
+            } />
+
+            <Route path="/course/:id/quizzes/edit/:quizId" element={
+              <ProtectedRoute allowedRole="instructor"><EditQuiz /></ProtectedRoute>
             } />
 
             {/* General Protected Routes */}
@@ -243,6 +268,10 @@ const AppContent = () => {
               <ProtectedRoute><DiscussionRoom /></ProtectedRoute>
             } />
           </Route>
+
+          <Route path="/supportpage" element={
+            <ProtectedRoute><SupportPage /></ProtectedRoute>
+          } />
 
           {/* Fallback */}
           <Route path="*" element={<Navigate to="/" replace />} />

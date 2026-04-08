@@ -27,7 +27,6 @@ const Register = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { login } = useAuth();
-  
   // Initialize role from navigation state or default to student
   const [role, setRole] = useState(location.state?.role || 'student');
 
@@ -46,18 +45,17 @@ const Register = () => {
     }),
     onSubmit: async (values, { setStatus, setSubmitting }) => {
       try {
-        const response = await fetch(`${import.meta.env.VITE_API_URL}/auth/register`, {
+        const response = await fetch(`${import.meta.env.VITE_API_URL}/api/auth/register`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(values),
         });
-        
+
         const data = await response.json();
 
-        if (response.ok && data.token) {
-          login(data.user, data.token);
-          // Navigate based on the role stored in Formik values
-          navigate(values.role === 'instructor' ? '/instructor-dashboard' : '/dashboard');
+        if (response.ok) {
+          setStatus("Registration successful. Please log in.");
+          navigate('/login', { state: { role: values.role } });
         } else {
           setStatus(data.message || "Registration failed. Email might already be in use.");
         }
@@ -78,16 +76,16 @@ const Register = () => {
   }, [location.state]);
 
   return (
-    <Box sx={{ 
-      height: '100vh', width: '100vw', display: 'flex', 
-      alignItems: 'center', justifyContent: 'center', bgcolor: '#f5f5f5' 
+    <Box sx={{
+      height: '100vh', width: '100vw', display: 'flex',
+      alignItems: 'center', justifyContent: 'center', bgcolor: '#f5f5f5'
     }}>
       <Container maxWidth="xs">
         <Paper elevation={6} sx={{ borderRadius: 4, overflow: 'hidden' }}>
-          
+
           {/* Header Section */}
-          <Box sx={{ 
-            p: 4, textAlign: 'center', 
+          <Box sx={{
+            p: 4, textAlign: 'center',
             bgcolor: formik.values.role === 'student' ? 'primary.main' : 'success.main',
             color: 'white', transition: '0.3s'
           }}>
@@ -143,12 +141,12 @@ const Register = () => {
               <Box sx={{ mt: 1.5, mb: 1, textAlign: 'center' }}>
                 <Typography variant="body2" color="text.secondary">
                   Already have an account?{' '}
-                  <Link 
-                    to="/login" 
-                    state={{ role: formik.values.role }} 
-                    style={{ 
-                      color: formik.values.role === 'student' ? '#1976d2' : '#2e7d32', 
-                      textDecoration: 'none', fontWeight: 'bold' 
+                  <Link
+                    to="/login"
+                    state={{ role: formik.values.role }}
+                    style={{
+                      color: formik.values.role === 'student' ? '#1976d2' : '#2e7d32',
+                      textDecoration: 'none', fontWeight: 'bold'
                     }}
                   >
                     Login here
@@ -159,7 +157,7 @@ const Register = () => {
               <Button
                 fullWidth type="submit" variant="contained" size="large"
                 disabled={formik.isSubmitting}
-                sx={{ 
+                sx={{
                   mt: 2, py: 1.5, borderRadius: 2, fontWeight: 'bold',
                   bgcolor: formik.values.role === 'student' ? 'primary.main' : 'success.main',
                   '&:hover': { bgcolor: formik.values.role === 'student' ? 'primary.dark' : 'success.dark' }

@@ -5,13 +5,12 @@ const Enrollment = require("./Enrollment");
 const Progress = require("./Progress");
 const Topic = require("./Topic");
 const Subtopic = require("./Subtopic");
-const Quiz = require('./Quiz');
-const Question = require('./Question');
-const QuizSubmission = require('./QuizSubmission');
-
-// --- discussion ---
-const DiscussionBoard = require('./DiscussionBoard');
-const DiscussionPost = require('./DiscussionPost');
+const Quiz = require("./Quiz");
+const Question = require("./Question");
+const QuizSubmission = require("./QuizSubmission");
+const DiscussionBoard = require("./DiscussionBoard");
+const DiscussionPost = require("./DiscussionPost");
+const SupportTicket = require("./SupportTicket");
 
 // --- COURSE & USER ASSOCIATIONS (Enrollment) ---
 User.hasMany(Course, { foreignKey: "instructorId", as: "coursesTaught" });
@@ -44,12 +43,12 @@ Progress.belongsTo(User, { foreignKey: "userId" });
 Course.hasMany(Progress, { foreignKey: "courseId" });
 Progress.belongsTo(Course, { foreignKey: "courseId" });
 
-// --- CONTENT ASSOCIATIONS (Topics & Subtopics) ---
-Course.hasMany(Topic, { foreignKey: 'courseId', as: 'topics', onDelete: 'CASCADE' });
-Topic.belongsTo(Course, { foreignKey: 'courseId', as: 'course' });
+// --- CONTENT ASSOCIATIONS ---
+Course.hasMany(Topic, { foreignKey: "courseId", as: "topics", onDelete: "CASCADE" });
+Topic.belongsTo(Course, { foreignKey: "courseId", as: "course" });
 
-Topic.hasMany(Subtopic, { foreignKey: 'topicId', as: 'subtopics', onDelete: 'CASCADE' });
-Subtopic.belongsTo(Topic, { foreignKey: 'topicId', as: 'topic' });
+Topic.hasMany(Subtopic, { foreignKey: "topicId", as: "subtopics", onDelete: "CASCADE" });
+Subtopic.belongsTo(Topic, { foreignKey: "topicId", as: "topic" });
 
 // --- QUIZ ASSOCIATIONS ---
 Course.hasMany(Quiz, { as: "quizzes", foreignKey: "courseId", onDelete: "CASCADE" });
@@ -59,24 +58,26 @@ Quiz.hasMany(Question, { as: "questions", foreignKey: "quizId", onDelete: "CASCA
 Question.belongsTo(Quiz, { as: "quiz", foreignKey: "quizId" });
 
 Quiz.hasMany(QuizSubmission, { foreignKey: "quizId", onDelete: "CASCADE" });
-QuizSubmission.belongsTo(Quiz, { foreignKey: "quizId" });
+QuizSubmission.belongsTo(Quiz, { foreignKey: "quizId", as: "quiz" });
 
 User.hasMany(QuizSubmission, { foreignKey: "userId", onDelete: "CASCADE" });
-QuizSubmission.belongsTo(User, { foreignKey: "userId" });
+QuizSubmission.belongsTo(User, { foreignKey: "userId", as: "student" });
 
-// --- DISCUSSION BOARD ASSOCIATIONS ---
-// 1. Course <-> Discussion Board
+// --- DISCUSSION ASSOCIATIONS ---
 Course.hasMany(DiscussionBoard, { as: "discussions", foreignKey: "courseId", onDelete: "CASCADE" });
 DiscussionBoard.belongsTo(Course, { as: "course", foreignKey: "courseId" });
 
-// 2. Discussion Board <-> Discussion Post
 DiscussionBoard.hasMany(DiscussionPost, { as: "posts", foreignKey: "boardId", onDelete: "CASCADE" });
 DiscussionPost.belongsTo(DiscussionBoard, { as: "board", foreignKey: "boardId" });
 
-// 3. User (Student/Instructor) <-> Discussion Post
 User.hasMany(DiscussionPost, { as: "posts", foreignKey: "userId", onDelete: "CASCADE" });
 DiscussionPost.belongsTo(User, { as: "author", foreignKey: "userId" });
 
+// --- SUPPORT TICKET ASSOCIATIONS ---
+User.hasMany(SupportTicket, { foreignKey: "userId", as: "supportTickets" });
+SupportTicket.belongsTo(User, { foreignKey: "userId", as: "user" });
+
+// --- EXPORTS ---
 module.exports = {
   sequelize,
   User,
@@ -89,5 +90,6 @@ module.exports = {
   Question,
   QuizSubmission,
   DiscussionBoard,
-  DiscussionPost
+  DiscussionPost,
+  SupportTicket,
 };

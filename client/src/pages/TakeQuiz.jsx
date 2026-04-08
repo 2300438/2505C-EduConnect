@@ -48,6 +48,21 @@ const TakeQuiz = () => {
     fetchQuiz();
   }, [courseId, quizId]);
 
+  // --- NEW: UX Feature 1 - Load Drafts ---
+  useEffect(() => {
+    const savedDraft = localStorage.getItem(`quiz_draft_${quizId}`);
+    if (savedDraft) {
+      setAnswers(JSON.parse(savedDraft));
+    }
+  }, [quizId]);
+
+  // --- NEW: UX Feature 1 - Autosave Drafts ---
+  useEffect(() => {
+    if (Object.keys(answers).length > 0) {
+      localStorage.setItem(`quiz_draft_${quizId}`, JSON.stringify(answers));
+    }
+  }, [answers, quizId]);
+
   const handleUnlock = async () => {
     try {
       const token = localStorage.getItem('token');
@@ -73,7 +88,19 @@ const TakeQuiz = () => {
     setAnswers(prev => ({ ...prev, [questionId]: value }));
   };
 
+  // --- NEW: UX Feature 2 - Unanswered Warning & Submit Logic ---
   const handleSubmit = async () => {
+    const totalQuestions = quiz?.questions?.length || 0;
+    // Count only answers that are actually filled in (not just empty strings)
+    const answeredCount = Object.keys(answers).filter(key => String(answers[key]).trim() !== '').length;
+
+    if (answeredCount < totalQuestions) {
+      const confirmIncomplete = window.confirm(`You have ${totalQuestions - answeredCount} unanswered questions! Are you sure you want to submit?`);
+      if (!confirmIncomplete) return;
+    } else {
+      if (!window.confirm("Are you sure you want to submit? You cannot change your answers after this.")) return;
+    }
+
     setSubmitting(true);
     try {
       const token = localStorage.getItem('token');
@@ -86,6 +113,9 @@ const TakeQuiz = () => {
       const data = await response.json();
       if (response.ok) {
         setResults(data); // e.g., { score: 80, total: 100 }
+        
+        // Clear the autosaved draft so it doesn't show up if they retake it later!
+        localStorage.removeItem(`quiz_draft_${quizId}`);
       } else {
         setError(data.message || 'Failed to submit quiz.');
       }
@@ -137,13 +167,35 @@ const TakeQuiz = () => {
     );
   }
 
+  // Calculate progress numbers
+  const totalQuestions = quiz?.questions?.length || 0;
+  const answeredCount = Object.keys(answers).filter(key => String(answers[key]).trim() !== '').length;
+
   // --- QUIZ TAKING SCREEN ---
   return (
     <Container maxWidth="md" sx={{ py: 5 }}>
+      
+      <Button variant="text" onClick={() => navigate(`/courses/${courseId}`)} sx={{ mb: 2 }}>
+        ← Back to Course
+      </Button>
+
       <Paper elevation={3} sx={{ p: 4, borderRadius: 2, mb: 4, bgcolor: '#f4f7f6' }}>
         <Typography variant="h4" fontWeight="bold" color="primary">{quiz.title}</Typography>
         <Typography variant="body1" color="textSecondary" mt={1}>{quiz.description}</Typography>
       </Paper>
+
+      {/* --- NEW: UX Feature 3 - Sticky Progress Tracker --- */}
+      <Box sx={{ 
+        position: 'sticky', top: 20, zIndex: 10, 
+        bgcolor: 'white', p: 2, borderRadius: 2, 
+        boxShadow: 3, mb: 4, display: 'flex', justifyContent: 'space-between',
+        border: '1px solid #e0e0e0'
+      }}>
+        <Typography fontWeight="bold" color="primary">Assessment Progress</Typography>
+        <Typography fontWeight="bold" color={answeredCount === totalQuestions ? 'success.main' : 'textPrimary'}>
+          Answered: {answeredCount} / {totalQuestions}
+        </Typography>
+      </Box>
 
       {quiz.questions?.map((q, index) => (
         <Paper key={q.id} elevation={1} sx={{ p: 4, mb: 3, borderRadius: 2, borderLeft: '4px solid #3498db' }}>

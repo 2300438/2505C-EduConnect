@@ -175,28 +175,6 @@ const Chatbot = () => {
                         </div>
                     </div>
 
-                    {/* 5. Avatar Video Display Area */}
-                    <div className="avatar-display" style={{
-                        height: '180px',
-                        background: '#1a1a1a',
-                        display: 'flex',
-                        justifyContent: 'center',
-                        alignItems: 'center',
-                        color: '#fff'
-                    }}>
-                        {avatarUrl ? (
-                            <video
-                                ref={videoRef}
-                                src={avatarUrl}
-                                autoPlay
-                                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                                onEnded={() => setAvatarUrl(null)} // Clear video when finished
-                            />
-                        ) : (
-                            <div className="avatar-placeholder">AI Tutor is listening...</div>
-                        )}
-                    </div>
-
                     <div className="chat-messages">
                         {messages.map((msg, i) => (
                             <div

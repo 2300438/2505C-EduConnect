@@ -35,13 +35,36 @@ const BrowseCourses = () => {
     };
 
     return (
-
-    
-
             <main className="main-content">
                 <header className="dashboard-header">
-                    <h2>Course Catalog 📖</h2>
-                    <p>Discover and enroll in new courses to expand your knowledge.</p>
+                    {/* --- ADDED FLEX CONTAINER AND BUTTON HERE --- */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <h2>Course Catalog 📖</h2>
+                        
+                        <button 
+                            onClick={() => navigate('/dashboard')}
+                            style={{
+                                padding: '8px 16px',
+                                backgroundColor: '#27ae60', // Green color to distinguish it
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '6px',
+                                fontWeight: 'bold',
+                                cursor: 'pointer',
+                                transition: 'background-color 0.2s ease',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px'
+                            }}
+                            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#219a52'}
+                            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#27ae60'}
+                        >
+                            📚 View My Courses
+                        </button>
+                    </div>
+                    {/* ------------------------------------------- */}
+
+                    <p style={{ marginTop: '10px' }}>Discover and enroll in new courses to expand your knowledge.</p>
                 </header>
 
                 <section className="enrolled-courses">
