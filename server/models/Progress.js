@@ -28,6 +28,12 @@ const Progress = sequelize.define("Progress", {
     type: DataTypes.DATE,
     allowNull: true,
   },
+
+  // Inside your Progress model definition
+  completedSubtopics: {
+    type: DataTypes.JSON, // Or DataTypes.ARRAY(DataTypes.INTEGER) if using PostgreSQL
+    defaultValue: []
+  }
 }, {
   tableName: "progress",
   timestamps: true,

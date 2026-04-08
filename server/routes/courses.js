@@ -824,11 +824,13 @@ router.get("/:courseId/progress", validateToken, async (req, res) => {
   }
 });
 
+
+
 // --- POST: CREATE QUIZ WITH QUESTIONS ---
 router.post("/:courseId/quizzes", validateToken, async (req, res) => {
   try {
     const { courseId } = req.params;
-    const { title, description, category, thumbnail, topicsData, discussionsData } = req.body;
+    const { title, description, requiresPassword, password, questions } = req.body;
 
     // 1. Verify Course & Ownership
     const course = await Course.findByPk(courseId);
@@ -841,7 +843,7 @@ router.post("/:courseId/quizzes", validateToken, async (req, res) => {
     const quiz = await Quiz.create({
       title,
       description,
-      requiresPassword,
+      requiresPassword :requiresPassword || false,
       password: requiresPassword ? password : null,
       courseId
     });

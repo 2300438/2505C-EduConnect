@@ -32,22 +32,37 @@ const Dashboard = () => {
                 // 1. Check if user exists before fetching
                 if (!user || !user.id) return;
 
-                // 2. Hit the exact backend route you built for the student dashboard
+                // 2. Fetch Enrollments
                 const response = await api.get(`/dashboard/student/${user.id}`);
-
-                // 3. Extract the 'enrollments' array from the JSON object your backend sent
                 const enrollmentData = response.data.enrollments || [];
                 const approvedCourses = enrollmentData.filter(e => e.status === 'approved');
 
+                // 3. Fetch Course Progress
+                let progressMap = {};
+                try {
+                    // Call the GET /progress route we made earlier
+                    const progressResponse = await api.get('/progress');
+                    const progressData = progressResponse.data || [];
+                    
+                    // Create a lookup dictionary: { courseId: progressPercent }
+                    progressData.forEach(p => {
+                        progressMap[p.courseId] = p.progressPercent;
+                    });
+                } catch (progressErr) {
+                    console.error('Failed to fetch progress:', progressErr);
+                }
+
+                // 4. Merge Enrollments with Progress
                 const formattedCourses = approvedCourses.map((enrollment) => {
-                    // Note: ensure the alias 'course' or 'Course' matches your index.js
                     const courseDetails = enrollment.course || enrollment.Course || {};
+                    const courseId = courseDetails.id || enrollment.courseId;
 
                     return {
-                        id: courseDetails.id || enrollment.courseId,
+                        id: courseId,
                         name: courseDetails.title || 'Untitled Course',
                         task: 'Continue learning',
-                        progress: 0,
+                        // Map the progress using the courseId!
+                        progress: progressMap[courseId] || 0,
                         icon: getCourseIcon(courseDetails.title || '')
                     };
                 });
@@ -62,7 +77,7 @@ const Dashboard = () => {
         };
 
         fetchDashboardCourses();
-    }, [user]); // <-- Added 'user' to the dependency array
+    }, [user]);
 
 
     return (
@@ -89,7 +104,6 @@ const Dashboard = () => {
                                 <div 
                                     className="course-card" 
                                     key={course.id}
-                                    // 1. Make the whole card clickable
                                     onClick={() => navigate(`/courses/${course.id}`)}
                                     style={{ cursor: 'pointer' }}
                                 >
@@ -106,7 +120,6 @@ const Dashboard = () => {
                                         {course.progress}% Completed
                                     </span>
                                     
-                                    {/* 2. Add a button to make it visually clear */}
                                     <div className="card-actions" style={{ marginTop: '15px' }}>
                                         <button className="btn-primary" style={{ width: '100%' }}>
                                             Continue Course
