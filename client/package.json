@@ -23,11 +23,7 @@
     "formik": "^2.4.9",
     "jwt-decode": "^4.0.0",
     "lucide-react": "^0.577.0",
-<<<<<<< HEAD
     "pdfjs-dist": "^3.11.174",
-=======
-    "pdfjs-dist": "^3.4.120",
->>>>>>> 553c50092ef7a4f0e707515af2e30703905f767e
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-router-dom": "^7.13.1",
