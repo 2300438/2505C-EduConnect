@@ -88,7 +88,28 @@ const Dashboard = () => {
                 </header>
 
                 <section className="enrolled-courses">
-                    <h3>Currently Enrolled</h3>
+                    {/* --- ADDED FLEX CONTAINER AND BUTTON HERE --- */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                        <h3 style={{ margin: 0 }}>Currently Enrolled</h3>
+                        <button 
+                            onClick={() => navigate('/courses')}
+                            style={{
+                                padding: '8px 16px',
+                                backgroundColor: '#1976d2',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '6px',
+                                fontWeight: 'bold',
+                                cursor: 'pointer',
+                                transition: 'background-color 0.2s ease'
+                            }}
+                            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#1565c0'}
+                            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#1976d2'}
+                        >
+                            🔍 Browse All Courses
+                        </button>
+                    </div>
+                    {/* ------------------------------------------- */}
 
                     {loading && <p>Loading your courses...</p>}
 
