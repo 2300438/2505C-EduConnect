@@ -19,6 +19,7 @@ const progressRoutes = require("./routes/progress");
 const extractRoute = require('./routes/extract');
 const discussionRoutes = require("./routes/discussions");
 const supportRoutes = require("./routes/support");
+const libraryRoutes = require('./routes/library');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -38,6 +39,7 @@ app.use("/api/progress", progressRoutes);
 app.use("/api/discussions", discussionRoutes)
 app.use(extractRoute);
 app.use("/api/support", supportRoutes);
+app.use('/api/library', libraryRoutes);
 
 // Test route
 app.get("/", (req, res) => {
