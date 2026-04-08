@@ -20,16 +20,7 @@ const Home = () => {
 
             <section className="action-section">
                 <div className="card-container">
-                    {/* Browse courses- ONLY STUDENTS CAN SEE THIS CARD */}
-                    {user?.role === 'student' && (
-                        <div
-                            className="action-card"
-                            onClick={() => navigate('/courses')}
-                            style={{ cursor: 'pointer' }}
-                        >
-                            <h3>📖 View all Courses</h3>
-                        </div>
-                    )}
+                    
                     {/* CARD 1: DYNAMIC DASHBOARD */}
                     <div
                         className="action-card"
