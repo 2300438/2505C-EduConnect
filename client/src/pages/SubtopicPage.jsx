@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import api from '../services/api';
+import { useAuth } from '../context/AuthContext'; // <-- Imported useAuth
 
 // PDF Viewer Imports
 import { Worker, Viewer } from '@react-pdf-viewer/core';
@@ -12,6 +13,8 @@ import '@react-pdf-viewer/default-layout/lib/styles/index.css';
 
 const SubtopicPage = () => {
     const { id, subtopicId } = useParams();
+    const { user } = useAuth(); // <-- Get current user
+
     const [subtopic, setSubtopic] = useState(null);
     const [pdfObjectUrl, setPdfObjectUrl] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -25,17 +28,16 @@ const SubtopicPage = () => {
                 setLoading(true);
                 setError('');
 
-                // 1. Get subtopic data (which includes your Vercel Blob URL)
+                // 1. Get subtopic data
                 const res = await api.get(`/courses/${id}/subtopics/${subtopicId}`);
                 const data = res.data;
                 setSubtopic(data);
 
-                // 2. Fetch the actual PDF file from Vercel Blob
-                // Converting to a local Object URL prevents CORS "Canvas" errors
+                // 2. Fetch the actual PDF file
                 if (data.fileUrl && data.fileUrl.toLowerCase().endsWith('.pdf')) {
                     try {
                         const fileResponse = await fetch(data.fileUrl, {
-                            mode: 'cors', // Ensure CORS mode is explicit
+                            mode: 'cors',
                         });
 
                         if (!fileResponse.ok) throw new Error("Network response was not ok");
@@ -48,6 +50,21 @@ const SubtopicPage = () => {
                         setError("Direct file access failed. The file may be restricted.");
                     }
                 }
+
+                // 3. Mark this subtopic as viewed/completed to update progress
+                if (user?.id) {
+                    try {
+                        // NOTE: Ensure your backend has a route to handle this request.
+                        // It should find the user's enrollment for this course and update their progress.
+                        await api.put(`/progress/${id}`, {
+                            subtopicId: subtopicId
+                        });
+                    } catch (progressErr) {
+                        console.error("Failed to update progress:", progressErr);
+                        // We don't set the main error state here so the lesson still loads even if progress tracking fails
+                    }
+                }
+
             } catch (err) {
                 console.error("Error loading subtopic content:", err);
                 setError('Could not load the lesson. Please check your connection.');
@@ -58,11 +75,12 @@ const SubtopicPage = () => {
 
         fetchSubtopicAndFile();
 
-        // Cleanup function to prevent memory leaks
+        // Cleanup function
         return () => {
             if (pdfObjectUrl) URL.revokeObjectURL(pdfObjectUrl);
         };
-    }, [id, subtopicId]); // Refetch whenever the student clicks a new subtopic in the sidebar
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [id, subtopicId, user?.id]); // Refetch when subtopic changes
 
     if (loading) return <div className="p-5 text-center">Opening Lesson...</div>;
     if (error) return <div className="p-5 text-danger text-center">{error}</div>;
@@ -76,7 +94,7 @@ const SubtopicPage = () => {
 
             <div style={{ flex: 1, border: '1px solid #ddd', borderRadius: '8px', overflow: 'hidden', height: '75vh' }}>
                 {pdfObjectUrl ? (
-                    <Worker workerUrl="https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js">
+                    <Worker workerUrl="https://unpkg.com/pdfjs-dist@3.4.120/build/pdf.worker.min.js">
                         <Viewer
                             fileUrl={pdfObjectUrl}
                             plugins={[defaultLayoutPluginInstance]}

@@ -249,7 +249,7 @@ app.post('/api/chat', protect, async (req, res) => {
 });
 
 // --- DB SYNC & SERVER START ---
-sequelize.sync()
+sequelize.sync({ alter: true })
     .then(() => {
         console.log("Database synced successfully.");
         app.listen(PORT, () => {
